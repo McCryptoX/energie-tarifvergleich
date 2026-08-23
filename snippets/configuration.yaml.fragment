@@ -10,7 +10,7 @@ recorder:
       - sensor.tarifvergleich_preise
       - sensor.tarifvergleich_preis_heat
       - sensor.tarifvergleich_preis_loyalty
-      - sensor.tarifvergleich_preis_naturwerke
+      - sensor.tarifvergleich_preis_fix
       - sensor.tarifvergleich_preis_dynamisch
       - sensor.tarifvergleich_preis_modul3
       - sensor.tarifvergleich_heute

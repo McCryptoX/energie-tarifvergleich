@@ -40,9 +40,12 @@ views:
                   {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
                   {{ 'green' if ids and 'octopus_heat_loyalty' in ids else 'grey' }}
               - type: custom:mushroom-template-card
-                entity: sensor.tarifvergleich_preis_naturwerke
+                entity: sensor.tarifvergleich_preis_fix
                 primary: Fixer Tarif
-                secondary: "{% if is_number(states('sensor.tarifvergleich_preis_naturwerke')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_naturwerke')|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}"
+                secondary: >
+                  {% set p = states('sensor.tarifvergleich_preis_fix') %}
+                  {% set p = p if is_number(p) else states('sensor.tarifvergleich_preis_naturwerke') %}
+                  {% if is_number(p) %}{{ '%.2f'|format(p|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}
                 icon: mdi:lock-outline
                 layout: vertical
                 tap_action:
