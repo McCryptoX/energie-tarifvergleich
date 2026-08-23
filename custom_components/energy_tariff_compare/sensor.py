@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     DOMAIN,
+    LEFTOVER_PRICE_ENTITY_IDS,
     PLAT_NAME,
     PRICE_ENTITY_IDS,
     PRICE_UNIQUE_ID_MIGRATIONS,
@@ -67,6 +68,15 @@ def migrate_renamed_price_unique_ids(hass: HomeAssistant) -> None:
                 updates["new_entity_id"] = desired
         registry.async_update_entity(old_eid, **updates)
         _LOGGER.info("Retargeted price unique_id %s -> %s (%s)", old_uid, new_uid, old_eid)
+
+    live_ids = set(PRICE_ENTITY_IDS.values())
+    for leftover_eid in LEFTOVER_PRICE_ENTITY_IDS:
+        if leftover_eid in live_ids:
+            continue
+        if registry.async_get(leftover_eid) is None:
+            continue
+        registry.async_remove(leftover_eid)
+        _LOGGER.info("Removed leftover price entity %s", leftover_eid)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:

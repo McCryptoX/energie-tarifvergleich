@@ -87,11 +87,15 @@ const = importlib.util.module_from_spec(_const_spec)
 _const_spec.loader.exec_module(const)
 check(
     const.PRICE_UNIQUE_ID_MIGRATIONS.get("etc_price_naturwerke_fix") == "etc_price_fix_tarif",
-    "naturwerke unique_id maps to fix_tarif",
+    "legacy unique_id maps to fix_tarif",
 )
 check(
     const.PRICE_ENTITY_IDS.get("etc_price_fix_tarif") == "sensor.tarifvergleich_preis_fix",
     "fix_tarif keeps entity_id sensor.tarifvergleich_preis_fix",
+)
+check(
+    "sensor.tarifvergleich_preis_naturwerke" in const.LEFTOVER_PRICE_ENTITY_IDS,
+    "legacy entity_id is listed for registry cleanup",
 )
 check(const.leftover_unique_id_action(None, "sensor.x") == "skip", "no leftover unique_id: skip")
 check(

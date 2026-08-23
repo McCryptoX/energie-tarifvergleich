@@ -21,6 +21,10 @@ PRICE_UNIQUE_ID_MIGRATIONS = {
 PRICE_ENTITY_IDS = {
     "etc_price_fix_tarif": "sensor.tarifvergleich_preis_fix",
 }
+# Old entity_ids that must not remain visible after the rename.
+LEFTOVER_PRICE_ENTITY_IDS = (
+    "sensor.tarifvergleich_preis_naturwerke",
+)
 
 
 def leftover_unique_id_action(
