@@ -3,7 +3,7 @@
 Canonical briefing for **ChatGPT / Codex**, **Google Antigravity / Gemini**, and Grok.
 
 Live system: Home Assistant OS **2026.8.3** on a **Raspberry Pi 3**.
-Integration version: **0.1.6** (`custom_components/energy_tariff_compare/manifest.json`).
+Integration version: **0.1.7** (`custom_components/energy_tariff_compare/manifest.json`).
 Schema: `split-costs-v3-tesla-v2`.
 
 If this file and an older `grok-*.txt` or `chatgpt-*.txt` disagree, **this file plus the live Python** win.
@@ -129,10 +129,6 @@ Monatszeile: `Gesamt: Heat … · Dynamisch … · Modul 3 …` — Heat nicht a
 
 1. Die neun `test_*.py` ausführen.
 2. Keine Secrets in Diffs/TXT.
-3. Für ChatGPT: kurze `grok-umsetzung-*.txt` + Index + ggf. neuer Prompt.
-4. Snapshot ohne sqlite/CSV nach `energie-tarifvergleich-github-2026-08-23/` kopieren.
-5. Marco: **Core neu starten** für Python. Dashboard-YAML: Frontend hart neu laden.
+3. Snapshot ohne sqlite/CSV nach `energie-tarifvergleich-github-2026-08-23/` kopieren.
+4. **Core neu starten** für Python. Dashboard-YAML: Frontend hart neu laden.
 
-Aktueller ChatGPT-Prüfauftrag nach 0.1.6:
-
-`/config/energy_tariff_compare/prompt-chatgpt-nachpruefung-0.1.6-2026-08-23.txt`

@@ -1,63 +1,101 @@
-# Neuinstallation
+# Installations- und Einrichtungsanleitung
 
-Diese Anleitung gilt für Home Assistant OS. Pfade relativ zu `/config`.
+Diese Anleitung führt Schritt für Schritt durch die Einrichtung auf **Home Assistant OS**. Alle Pfadangaben beziehen sich auf das Wurzelverzeichnis `/config`.
 
-## 1. Dateien kopieren
+---
 
-| Quelle in diesem Ordner | Ziel auf dem HA |
+## 1. Dateien auf das Home-Assistant-System kopieren
+
+Kopiere die Dateien und Ordner aus dem Repository in deine Home-Assistant-Installation:
+
+| Quelle im Repository | Zielverzeichnis auf Home Assistant |
 |---|---|
 | `custom_components/energy_tariff_compare/` | `/config/custom_components/energy_tariff_compare/` |
-| `energy_tariff_compare/tariffs.yaml` | `/config/energy_tariff_compare/tariffs.yaml` |
+| `energy_tariff_compare/tariffs.example.yaml` | `/config/energy_tariff_compare/tariffs.yaml` *(kopieren & anpassen)* |
 | `energy_tariff_compare/scripts/` | `/config/energy_tariff_compare/scripts/` |
 | `energy_tariff_compare/tests/` | `/config/energy_tariff_compare/tests/` |
 | `dashboards/energie_tarifvergleich.yaml` | `/config/dashboards/energie_tarifvergleich.yaml` |
 
-`energy_tariff_compare/data/` legt die Integration selbst an.
+> Der Unterordner `/config/energy_tariff_compare/data/` für die SQLite-Datenbank wird von der Integration beim ersten Start automatisch angelegt.
 
-Öffentliches GitHub: `tariffs.example.yaml` nach `tariffs.yaml` kopieren und Entity-IDs anpassen.
+---
 
-## 2. `configuration.yaml`
+## 2. Tarife und Sensoren konfigurieren (`tariffs.yaml`)
 
-Den Block aus `snippets/configuration.yaml.fragment` mergen:
+Kopiere `tariffs.example.yaml` zu `tariffs.yaml` und passe die Sensor-Entity-IDs an dein System an:
 
-- `recorder.exclude` (Pi 3 / SD-Karte)
-- `lovelace.dashboards.energie-tarifvergleich` → YAML-Dashboard in der Sidebar
+```yaml
+entities:
+  grid_import: sensor.grid_import_energy             # Dein Smart-Meter-Sensor (total_increasing)
+  grid_export: sensor.grid_export_energy             # Optional: Einspeisung
+  nordpool_current: sensor.nord_pool_ger_current_price # Nord Pool GER Spotpreis
+  nordpool_next: sensor.nord_pool_ger_next_price
+  octopus_price: sensor.octopus_electricity_price    # Optional: Kontrollsensor
+  tesla_energy: sensor.tesla_wall_connector_energy   # Optional: Wallbox-Lebensdauer-kWh
+```
 
-**Kein** Top-Level-Schlüssel `energy_tariff_compare:`.
+Passe in der Datei die gesetzlichen Umlagen, Netzbetreiber-Zeitfenster (z. B. Westnetz NT/ST/HT) sowie deine Arbeitspreise und Grundgebühren an.
 
-## 3. Core-Neustart
+---
 
-Python-Custom-Components und neue Sensoren brauchen einen **Core-Neustart**, nicht nur „Tarife neu laden“.
+## 3. `configuration.yaml` anpassen
 
-## 4. Integration anlegen
+Füge den Inhalt aus `snippets/configuration.yaml.fragment` in deine `/config/configuration.yaml` ein:
 
-Einstellungen → Geräte & Dienste → Integration hinzufügen → **Energie & Tarifvergleich**.
+1. **Recorder-Optimierung:** Rauschige Leistungs- und Spannungssensoren ausschließen, um SD-Karte und SQLite schlank zu halten.
+2. **Dashboard-Registrierung:** Bindet das YAML-Dashboard in die Home-Assistant-Seitenleiste ein:
+   ```yaml
+   lovelace:
+     mode: storage
+     dashboards:
+       energie-tarifvergleich:
+         mode: yaml
+         title: Energie & Tarifvergleich
+         icon: mdi:flash-auto
+         show_in_sidebar: true
+         filename: dashboards/energie_tarifvergleich.yaml
+   ```
 
-Dienste danach:
+> **Wichtig:** Trage **kein** `energy_tariff_compare:` als Schlüssel in die `configuration.yaml` ein.
 
-- `energy_tariff_compare.collect_now`
-- `energy_tariff_compare.shift_month`
-- `energy_tariff_compare.reload_tariffs` (nur YAML-Preise; Entity-Wechsel → Core-Neustart)
+---
 
-## 5. Abhängigkeiten in Home Assistant
+## 4. Home Assistant Core neu starten
 
-Bereits vorhandene Integrationen, die dieses Projekt *liest*:
+Nach dem Kopieren von Custom Components und der Anpassung der `configuration.yaml` muss ein **vollständiger Neustart des Home Assistant Core** durchgeführt werden (*Entwicklerwerkzeuge → YAML → Neu starten*). Ein reines Neuladen der YAML-Konfiguration reicht nicht aus.
 
-- Nord Pool (GER, EUR)
-- Discovergy / Inexogy Grid-Import `total_increasing`
-- Optional Octopus Energy Germany (nur Kontroll-Preis, Rechnung kommt aus YAML)
-- Optional Tesla Wall Connector, Anker Solix (Anzeige, keine Steuerung)
+---
 
-## 6. Historische Zählerwerte
+## 5. Integration in der Benutzeroberfläche hinzufügen
 
-Live-Zählung startet bei der ersten Baseline. 15-Minuten-Historie aus Inexogy-CSV:
+1. Navigiere zu: **Einstellungen → Geräte & Dienste → Integration hinzufügen**.
+2. Suche nach **Energie & Tarifvergleich** und füge die Integration hinzu.
+3. Die Sensoren (z. B. `sensor.tarifvergleich_jetzt_heat_ct`, `sensor.tarifvergleich_monat_heat_eur`, etc.) werden automatisch registriert.
 
-1. Home Assistant **stoppen**
-2. CSV nach `/config/energy_tariff_compare/imports/`
-3. `python3 /config/energy_tariff_compare/scripts/import_inexogy.py` **auf dem HA-Dateisystem**, nicht über Samba gegen die laufende DB
+### Verfügbare Dienste (*Entwicklerwerkzeuge → Dienste*):
+- `energy_tariff_compare.collect_now`: Erzwingt sofortiges Buchen des letzten Slots.
+- `energy_tariff_compare.reload_tariffs`: Lädt Preis- und Fensteränderungen aus der `tariffs.yaml` im laufenden Betrieb neu (bei Entity-ID-Änderungen ist ein Core-Neustart erforderlich).
+- `energy_tariff_compare.shift_month`: Erlaubt das Durchschalten historischer Monatsansichten.
 
-## 7. Nach dem ersten Start
+---
 
-- Erste Viertelstunde: Baseline, noch 0 kWh
-- Wallbox: Baseline der Lebensdauer-kWh, Kosten ab der nächsten abgeschlossenen Viertelstunde
-- Perfekt: erst nach einem **vollständigen** Tag (alle fälligen Slots mit kWh und Spot)
+## 6. Historischer Datenimport (Optional)
+
+Die Live-Erfassung startet ab dem Moment der ersten Baseline. Um historische 15-Minuten-Verbrauchsdaten aus einem Inexogy/Discovergy-CSV-Export nachzupflegen:
+
+1. Home Assistant **vollständig stoppen**.
+2. CSV-Datei in den Ordner `/config/energy_tariff_compare/imports/` legen.
+3. Auf dem Home-Assistant-System (SSH/Terminal) ausführen:
+   ```bash
+   python3 /config/energy_tariff_compare/scripts/import_inexogy.py --replace-live
+   ```
+4. Home Assistant wieder starten.
+
+---
+
+## 7. Verhalten nach dem ersten Start
+
+- **Erste Viertelstunde:** Dient als Zählerstand-Baseline (noch 0 kWh).
+- **Wallbox:** Erfasst den Startwert der Lebensdauer-kWh; Ladekosten werden ab dem nächsten abgeschlossenen 15-Minuten-Slot berechnet.
+- **Perfekt-Tarif:** Wird täglich rückwirkend berechnet, sobald alle 96 (bzw. 92/100 bei DST) Slots eines Kalendertags vollständig vorliegen.
+

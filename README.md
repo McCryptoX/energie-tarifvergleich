@@ -1,89 +1,106 @@
-# Energie & Tarifvergleich
+# Energie- & Tarifvergleich für Home Assistant
 
-Home Assistant custom component: **15-minute grid import**, German retail tariff comparison, optional wallbox costing.
+Echtzeit- und Vergangenheits-Tarifvergleich für den Strom-Netzbezug in Deutschland im **15-Minuten-Raster**. Entwickelt für **Home Assistant OS**, optimiert für ressourcenschonenden Betrieb (z. B. auf einem **Raspberry Pi 3** ohne InfluxDB, Grafana, Node-RED oder MariaDB).
 
-Designed for **Home Assistant OS on a Raspberry Pi 3**. No InfluxDB, Grafana, Node-RED, AppDaemon or MariaDB.
-
-It does **not** control any device.
-
-Agent briefing (ChatGPT, Codex, Google Antigravity/Gemini): see **[AGENTS.md](AGENTS.md)**. Version **0.1.6**.
+> **Reines Lese- und Analysesystem:** Diese Integration steuert weder die Wärmepumpe, noch die Wallbox, den PV-Speicher oder den Wechselrichter.
 
 ---
 
-Leichtgewichtiges 15-Minuten-Logging und Tarifvergleich auf Home Assistant OS.
+## 🎯 Was das Projekt tut
 
-## What it compares
+Das System erfasst alle 15 Minuten (Minute 00, 15, 30, 45 + 20 s Versatz) den abgeschlossenen UTC-Slot und berechnet parallel die Kosten für verschiedene Stromtarife auf Basis des echten Netzbezugs (z. B. Discovergy / Inexogy Smart Meter):
 
-| ID | Role |
-|---|---|
-| `octopus_heat` | Live contract (reference), all-in gross |
-| `octopus_heat_loyalty` | Hypothetical |
-| `naturwerke_fix` | Hypothetical |
-| `dynamic` | Hypothetical Tibber-like (spot + markup + Westnetz flat + levies + VAT) |
-| `dynamic_modul3` | Same, with Westnetz Modul 3 NT/ST/HT and §14a standing reduction |
-| Perfect | Post-hoc: measured 15-min kWh blocks reassigned to the cheapest slots *of that same day* |
+| Tarif-ID | Name / Typ | Beschreibung & Berechnungsbasis |
+|---|---|---|
+| `octopus_heat` | **Octopus Heat (Referenz)** | Echter Time-of-Use-Vertrag (NT / ST / HT), All-in brutto inkl. aller Umlagen, Steuern und Grundpreis. |
+| `octopus_heat_loyalty` | **Octopus Heat Loyalty** | Hypothetisches Folgeangebot mit angepassten Arbeitspreisen. |
+| `naturwerke_fix` | **Naturwerke Fix** | Hypothetischer klassischer Festpreistarif (fester Arbeitspreis + Grundpreis). |
+| `dynamic` | **Dynamischer Tarif** | Börsenpreis (Nord Pool Spot GER) + Lieferantenaufschlag + Standard-Netzentgelt (flach) + gesetzliche Umlagen/Steuern 2026 + MwSt. |
+| `dynamic_modul3` | **Dynamisch + §14a Modul 3** | Wie dynamisch, jedoch mit **zeitvariablen Netzentgelten der Westnetz** (NT / ST / HT) sowie pauschaler Grundpreisreduzierung nach **§14a EnWG (Modul 1)**. |
+| `dynamic_perfect` | **Perfekt optimiert** | Nachträglich berechnetes, theoretisches Optimum für abgeschlossene Tage: Die gemessenen 15-Minuten-kWh-Blöcke werden auf die günstigsten Börsenpreis-Slots *desselben Tages* umsortiert. |
 
-Billing simulation uses **grid import only** (Discovergy / Inexogy). PV, battery and wallbox explain the house; they are not the invoice meter.
+---
 
-**Perfect** does not dump the whole day onto the single cheapest quarter-hour. Each measured 15-minute kWh block stays that size; blocks are sorted onto the cheapest prices of that day (rearrangement). Standing charges stay. Heat pump and 11 kW wallbox constraints are not modelled.
+## 💡 Besonderheiten & Methodik
 
-## Architecture
+- **Abrechnung ausschließlich über Netzbezug:** PV-Erzeugung, Batteriespeicher und Wallbox-Verbrauch dienen der Erklärung des Hausverbrauchs, fließen aber nicht in die Zähler-Schattenrechnung ein.
+- **Transparente Trennung:** Arbeitspreise (ct/kWh bzw. EUR) und Grundgebühren (EUR) werden strikt getrennt ausgewiesen. §14a-Gutschriften werden nicht mit dem Fixpreis vermischt.
+- **Echte 15-Minuten-Präzision:** Volle Unterstützung von Sommer-/Winterzeit-Umstellungen (DST 92 / 96 / 100 Slots pro Tag).
+- **Optionale Wallbox-Auswertung:** Verfolgt Lifetime-kWh des Tesla Wall Connectors und ermittelt die reinen Lade-Arbeitskosten je Tarif.
+- **Automatische Lückenreparatur:** Schließt kurze Ausfälle nach HA-Neustarts über 5-Minuten-Statistiken des Recorders, damit Tage für den Tarifvergleich vollständig bleiben.
+
+---
+
+## 🏛 Architektur
 
 ```
-Discovergy meter + Nord Pool GER
-        ↓  every 15 min (minute 0/15/30/45 + 20 s)
-SQLite   energy_tariff_compare/data/energy.sqlite
-        ↓  daily / monthly / yearly aggregates
-Sensors + Lovelace dashboard
+Discovergy / Inexogy Zähler + Nord Pool Spot GER
+               │
+               ▼  alle 15 Minuten (Minute 00/15/30/45 + 20s)
+    Lokale SQLite-Datenbank (energy_tariff_compare/data/energy.sqlite)
+               │
+               ▼  Tages-, Monats- und Jahresaggregate
+    Home Assistant Sensoren & Lovelace Dashboard (3 Tabs)
 ```
 
-Home Assistant long-term statistics are hourly. 15-minute ToU until 2027 needs the project database.
+- **Keine Cloud-Abhängigkeit:** Berechnungen laufen zu 100 % lokal auf deinem Home Assistant.
+- **Nord Pool API:** Spotmarkt-Werte (`EUR/MWh`) werden automatisch auf `EUR/kWh` normiert.
 
-Nord Pool `get_prices_for_date` values are **EUR/MWh** and always divided by 1000.
+---
 
-## Requirements
+## 📋 Voraussetzungen
 
-- Home Assistant OS 2026.8 (or current 2026.x)
-- [Nord Pool](https://www.home-assistant.io/integrations/nordpool/) official integration
-- A `total_increasing` grid-import energy sensor (e.g. Discovergy)
-- Optional: Tesla Wall Connector lifetime energy, Anker Solix power sensors (display only)
+- **Home Assistant OS** (Version 2026.x)
+- **Offizielle [Nord Pool Integration](https://www.home-assistant.io/integrations/nordpool/)** (Bereich `GER`, Währung `EUR`)
+- **Smart Meter Sensor** mit `state_class: total_increasing` für den Netzbezug (z. B. Discovergy / Inexogy)
+- *Optional:* Tesla Wall Connector (Sensor für Lebensdauer-Energie), Anker Solix (Sensoren für die Live-Visualisierung)
 
-## Install (short)
+---
 
-See [INSTALL.md](INSTALL.md).
+## 🚀 Installation & Schnelleinstieg
 
-1. Copy `custom_components/energy_tariff_compare/` to `/config/custom_components/`
-2. Copy `energy_tariff_compare/` to `/config/energy_tariff_compare/`
-3. Copy the dashboard YAML, merge the recorder/lovelace snippet
-4. Use `tariffs.example.yaml` as a template; point `entities:` at your sensors
-5. **Core restart** (not YAML-only reload) so Python loads
-6. Settings → Devices & services → Add **Energie & Tarifvergleich**
+Eine detaillierte Schritt-für-Schritt-Anleitung findest du in [INSTALL.md](INSTALL.md).
 
-Do **not** add `energy_tariff_compare:` to `configuration.yaml`. Config is a UI entry plus `tariffs.yaml`.
+1. Ordner `custom_components/energy_tariff_compare/` nach `/config/custom_components/` kopieren.
+2. Ordner `energy_tariff_compare/` nach `/config/energy_tariff_compare/` kopieren.
+3. Datei `tariffs.example.yaml` als Vorlage nach `tariffs.yaml` kopieren und eigene Entity-IDs sowie Tarifdaten eintragen.
+4. Dashboard-YAML aus `dashboards/energie_tarifvergleich.yaml` einbinden.
+5. **Home Assistant Core neu starten** (damit die Python-Komponente geladen wird).
+6. Unter *Einstellungen → Geräte & Dienste → Integration hinzufügen* die Integration **Energie & Tarifvergleich** aktivieren.
 
-## Tests
+> **Wichtig:** Füge **kein** `energy_tariff_compare:` in die `configuration.yaml` ein. Die Konfiguration erfolgt über die UI-Integration und die `tariffs.yaml`.
 
-From a machine that can see the files (Samba `/Volumes/config` or HA `/config`):
+---
+
+## 🧪 Tests ausführen
+
+Das Projekt verfügt über eine vollständige Test-Suite zur Verifizierung von Zeitfenstern, DST, Slot-Buchungen, Aggregationen und Reparaturlogik:
 
 ```bash
-cd energy_tariff_compare
-python3 tests/test_windows.py
-python3 tests/test_price_units.py
-python3 tests/test_collector_slots.py
-python3 tests/test_aggregates.py
-python3 tests/test_tesla_and_gaps.py
-python3 tests/test_async_callbacks.py
-python3 tests/test_spot_repair.py
-python3 tests/test_import_inexogy.py
+cd energy_tariff_compare/tests
+python3 test_windows.py
+python3 test_price_units.py
+python3 test_collector_slots.py
+python3 test_aggregates.py
+python3 test_tesla_and_gaps.py
+python3 test_async_callbacks.py
+python3 test_spot_repair.py
+python3 test_import_inexogy.py
 ```
 
-## Pi 3 notes
+---
 
-- Recorder: exclude noisy power/voltage sensors; keep `sensor.tarifvergleich_viertelstunde_kwh`, `sensor.tarifvergleich_dynamisch_ct`, `sensor.tarifvergleich_modul3_ct`
-- Do not turn recorder `include` into a two-sensor allowlist
-- Do not rewrite `energy.sqlite` over SMB while Home Assistant is running
-- Historical Inexogy CSV import: stop HA, run `scripts/import_inexogy.py` on the HA filesystem
+## 📌 Projekt-Status & Forks
 
-## License
+Dieses Projekt ist für ein konkretes Setup (Home Assistant OS auf Pi 3, Discovergy/Inexogy, Westnetz §14a Modul 3, Octopus Heat) maßgeschneidert, stabil im Einsatz und **in sich abgeschlossen (*feature-complete*)**.
 
-MIT — see [LICENSE](LICENSE). Not affiliated with Octopus, Tibber, Westnetz, Tesla or Anker.
+- **Keine individuellen Feature-Requests:** Es werden keine zusätzlichen Netzbetreiber, andere Wechselrichter-Marken oder Steuerungsfunktionen eingebaut.
+- **Forks ausdrücklich erwünscht:** Wenn du das Projekt für deine eigenen Tarife, andere Zählersysteme oder Steuerungslogiken anpassen möchtest, kannst du das Repository sehr gerne **forken** und frei weiterentwickeln!
+
+---
+
+## 📄 Lizenz
+
+Veröffentlicht unter der [MIT Lizenz](LICENSE).  
+*Dieses Projekt steht in keiner offiziellen Verbindung zu Octopus Energy, Tibber, Westnetz, Discovergy/Inexogy, Tesla oder Anker.*
+

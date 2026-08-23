@@ -1,30 +1,36 @@
-# Security and privacy
+# Sicherheit und Datenschutz
 
-## This integration is read-only
+## 1. Reines Lese-System (Read-Only)
 
-It does **not** control a heat pump, wallbox, battery or inverter.
-Vaillant / Tesla Wall Connector / Anker Solix are used only as sensors, if present.
+Diese Integration führt **keinerlei Steuerungsbefehle** an Geräten aus:
+- Keine Steuerung von Wärmepumpen (z. B. Vaillant)
+- Keine Steuerung oder Drosselung von Wallboxen (z. B. Tesla Wall Connector)
+- Keine Entlade- oder Ladesteuerung von Heimspeichern / Wechselrichtern (z. B. Anker Solix)
 
-## Do not publish live data
+Alle angebundenen Entitäten werden ausschließlich passiv als Messwertgeber für die Verbrauchsberechnung und Visualisierung ausgelesen.
 
-Keep these out of a public GitHub repository:
+---
 
-- `energy_tariff_compare/data/energy.sqlite` (your 15-minute consumption)
-- `energy_tariff_compare/imports/*.csv` (meter exports)
-- live `tariffs.yaml` if it contains account or meter numbers
-- Home Assistant `.storage/` and `secrets.yaml`
+## 2. Schutz privater und sensibler Daten
 
-For a public repo, commit `energy_tariff_compare/tariffs.example.yaml` and copy it
-to `tariffs.yaml` on the device.
+Folgende Dateien und Verzeichnisse dürfen **nicht** in ein öffentliches Repository eingecheckt werden (in `.gitignore` hinterlegt):
 
-## Secrets
+- `energy_tariff_compare/data/energy.sqlite*` (Enthält dein 15-Minuten-Verbrauchsprofil)
+- `energy_tariff_compare/imports/*.csv` (Zählerdaten-Exporte mit Zählernummern)
+- `energy_tariff_compare/tariffs.yaml` (Kann Zähler- und Kundennummern enthalten – stattdessen `tariffs.example.yaml` committen)
+- Home-Assistant-interne Dateien wie `.storage/` und `secrets.yaml`
 
-The custom component does not store supplier passwords. Nord Pool, Discovergy,
-Octopus, Tesla and Anker credentials stay in Home Assistant.
+---
 
-## Raspberry Pi 3
+## 3. Zugangsdaten & Passwörter
 
-Do not add InfluxDB, Grafana, Node-RED, AppDaemon or MariaDB for this dashboard.
-The SQLite file under `energy_tariff_compare/data/` is the project store.
-The Home Assistant recorder is an allow/exclude list — do not turn it into a
-whitelist of two sensors.
+Die Integration speichert **keine Passwörter oder Zugangsdaten**. Alle Zugriffe auf Nord Pool, Discovergy, Octopus Energy oder Tesla laufen über die nativen Home-Assistant-Integrationen und verbleiben in der sicheren Schlüsselverwaltung von Home Assistant.
+
+---
+
+## 4. Systemsicherheit & Hardware-Schonung (Raspberry Pi 3)
+
+- **Keine externen Datenbankserver nötig:** Die Datenhaltung erfolgt in einer lokalen SQLite-Datei im WAL-Modus (*Write-Ahead Logging*), um SD-Karten-Schreibzugriffe zu minimieren.
+- **Kein SMB-Schreibzugriff bei laufendem HA:** Die Datenbank darf niemals über Netzlaufwerke (Samba/SMB) manipuliert werden, während Home Assistant aktiv ist.
+- **Recorder-Exclude:** Empfohlene Filterung hochfrequenter Messwerte in der `configuration.yaml` schützt die Systemressourcen.
+

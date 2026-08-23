@@ -1,41 +1,41 @@
-# Changelog
+# Versionsverlauf (Changelog)
 
 ## 0.1.7 — 2026-08-23
 
-- Tesla baseline while grid import is still missing no longer advances `last_tesla` over an unbooked delta
-- Tesla counter reset keeps open pending kWh (`tesla_pending_extra`) and books them with new-counter energy
-- Occupied repaired/ok rows with 0 grid kWh add Tesla instead of replacing
+- **Tesla Wall Connector Baseline-Sicherheit:** Wenn beim ersten Start noch kein Netzbezug vorliegt, rückt `last_tesla` nicht vor, ohne dass das Delta als ausstehend (`pending`) gebucht wird.
+- **Tesla Zähler-Reset:** Offene ausstehende kWh (`tesla_pending_extra`) bleiben bei einem Zähler-Reset erhalten und werden mit dem neuen Zählerstand zusammen gebucht.
+- **Null-Netzbezug-Slots:** Reparierte Slots mit 0 kWh Netzbezug addieren das Tesla-Delta, anstatt Werte zu überschreiben.
 
 ## 0.1.6 — 2026-08-23
 
-- Tesla meta (`last_tesla` / source) advances only after a booked interval or first baseline
-- Extra Tesla delta on a protected row that already has `tesla_kwh` is added, not dropped
-- Multi-slot Tesla is pending (`tesla_pending_kwh`), flushed on the next safe 15-min slot
-- Agent docs: `AGENTS.md` + `GEMINI.md` (ChatGPT and Google Antigravity)
+- **A3-Invariante:** `last_tesla` und Metadaten rücken nur vor, wenn das Tesla-Delta auf einer Intervallzeile gebucht wurde oder es die allererste Baseline ist.
+- **Mehrfaches Tesla-Delta:** Zusätzliches Delta auf geschützten Zeilen mit vorhandenen `tesla_kwh` wird aufaddiert statt verworfen.
+- **Mehrintervall-Sicherheit:** Längere Lücken puffern das Tesla-Delta in `meta.tesla_pending_kwh` und buchen es auf dem nächsten regulären 15-Minuten-Slot (*Flush*).
+- **Agenten-Dokumentation:** Vereinheitlichte Leitfäden in `AGENTS.md` und `GEMINI.md`.
 
 ## 0.1.5 — 2026-08-23
 
-- Tesla: charging kWh is merged onto backfilled/repaired slots; last_tesla only advances after a booking
-- Tariff YAML reload reprices interval-only days (not just daily rows); startup reprice under collect_lock; config hash after success
-- Wallbox month/year/week dynamic costs stay unknown when a spot is missing
-- Period ranking requires expected day coverage for month/year
-- Nord Pool “complete day” checks the 15-minute raster (92/96/100), not just the point count
-- Dashboard: month totals no longer labelled as Heat-win; tab titles visible; honest graph ranges
+- **Tesla-Merge:** Lade-kWh werden auf nacherfasste/reparierte Slots gemergt.
+- **YAML-Reload-Optimierung:** Neuberechnung von Preisen erfasst alle Intervalltage; Startup-Reprice läuft thread-sicher unter `collect_lock`.
+- **Spot-Lücken:** Bei fehlenden Börsenpreisen bleiben dynamische Kosten für Monat/Jahr/Woche sauber als `unknown`/`None`, Heat bleibt exakt berechnet.
+- **Ranking-Vollständigkeit:** Rangfolge für Monat/Jahr erfordert die volle Tagesabdeckung.
+- **15-Minuten-Rasterprüfung:** Vollständigkeitsprüfung prüft das echte Zeitraster (92/96/100 Slots) statt reiner Slot-Anzahl.
+- **Dashboard-Verbesserungen:** Neutrale Monatsauswertung; sichtbare Tab-Titel und optimierte Diagrammbereiche.
 
 ## 0.1.4 — 2026-08-23
 
-- Tesla Wall Connector: 15-minute charging kWh from lifetime energy, from first baseline onward
-- Wallbox costs = slot Arbeitspreis only (no standing charge)
-- Week aggregation Monday–Sunday
-- Gap repair from recorder 5-minute statistics (so Perfect can run after HA downtime)
-- Modul 3 price history sensor `sensor.tarifvergleich_modul3_ct`
-- Interval kWh sensor: measurement state class, no Energy device class
-- Dashboard: Anker live, Tesla live, Wallbox cost table, separate 24 h graphs
+- **Tesla Wall Connector Integration:** 15-Minuten-Lade-kWh aus Lifetime-Energie ab der ersten Baseline.
+- **Reine Ladekosten:** Wallbox-Kosten = Slot-Arbeitspreis × Lade-kWh (ohne Grundpreisumlage).
+- **Wochen-Aggregation:** Exakte Wochenauswertung von Montag bis Sonntag.
+- **Lückenreparatur:** Schließt Ausfälle nach HA-Downtime automatisch über 5-Minuten-Statistiken des Recorders.
+- **Preisverlauf-Sensor:** Neuer Sensor `sensor.tarifvergleich_modul3_ct`.
+- **Dashboard:** Live-Karten für Anker Solix und Tesla Wall Connector, detaillierte Kostentabelle und separate 24h-Graphen.
 
 ## 0.1.3
 
-- Split Arbeitspreis / Grund/Fix / §14a
-- Perfect for Dynamisch and Dynamisch + Modul 3 on complete days
-- Nord Pool service prices always treated as EUR/MWh and divided by 1000
-- Closed UTC 15-minute slot, collect lock, async callbacks
-- Tibber-like markup 2.15 ct gross
+- **Kostenaufteilung:** Getrennte Ausweisung von Arbeitspreis, Grundpreis und §14a-Reduzierung.
+- **Perfekt-Tarif:** Mathematische Optimierung für Dynamisch und Dynamisch + Modul 3 für vollständige Tage.
+- **Nord Pool Normalisierung:** Automatische Umrechnung von `EUR/MWh` in `EUR/kWh`.
+- **UTC-Raster & Asynchronität:** Exakte Buchung geschlossener 15-Minuten-UTC-Slots mit Thread-Locks.
+- **Tibber-Aufschlag:** Standardmäßiger Aufschlag von 2,15 ct/kWh brutto integriert.
+
