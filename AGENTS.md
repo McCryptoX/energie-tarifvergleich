@@ -1,134 +1,108 @@
-# AGENTS.md — Energie & Tarifvergleich
+# AGENTS.md — Energie- & Tarifvergleich für Home Assistant
 
-Canonical briefing for **ChatGPT / Codex**, **Google Antigravity / Gemini**, and Grok.
+> **Canonical Briefing for AI Assistants**  
+> *(ChatGPT / OpenAI Codex, Google Antigravity / Gemini, Anthropic Claude, xAI Grok, Cursor, Copilot)*
 
-Live system: Home Assistant OS **2026.8.3** on a **Raspberry Pi 3**.
-Integration version: **0.1.7** (`custom_components/energy_tariff_compare/manifest.json`).
-Schema: `split-costs-v3-tesla-v2`.
+Diese Datei dient als **verbindlicher Leitfaden für KI-Assistenten**, die dieses Repository analysieren, erweitern, testen oder forken. Sie beschreibt die Architektur, mathematische Invarianten, Sicherheitsgrenzen und Testprozesse.
 
-If this file and an older `grok-*.txt` or `chatgpt-*.txt` disagree, **this file plus the live Python** win.
+---
 
+## 1. Systemübersicht & Kernprinzipien
 
-## English (hard rules, one screen)
+* **Zweck:** Hochpräziser 15-Minuten-Stromtarifvergleich und Schattenabrechnung in Home Assistant (Dynamische Tarife wie Tibber, §14a EnWG Modul 3, Time-of-Use wie Octopus Heat, Festpreise und theoretisches Optimum *Perfect*).
+* **Zielumgebung:** Home Assistant OS (z. B. auf Raspberry Pi 3 oder Mini-PCs).
+* **Datenbank:** SQLite (`energy.sqlite`) im ressourcenschonenden WAL-Modus.
+* **Architektur:** Reine Lese- und Simulationsintegration — **niemals externe Hardware (Wallboxen, Batteriespeicher, Wechselrichter, Wärmepumpen) aktiv steuern.**
 
-- Read-only devices: never control Tesla Wall Connector, Anker Solix, or Vaillant.
-- Billing simulation uses **grid import only** (Discovergy / Inexogy), not PV watts, not wallbox kWh.
-- Pi 3: no Influx, Grafana, Node-RED, AppDaemon, MariaDB, ApexCharts, card-mod, layout-card.
-- Do not write `energy.sqlite` over Samba while HA is running. Read-only SQL is OK (`mode=ro`).
-- Never print secrets, tokens, meter IDs, or account numbers.
-- Perfect = rearrange measured 15-min kWh blocks onto the cheapest slots **of that same day**. Not “dump the whole day into the cheapest quarter”.
-- **C2 forbidden:** Perfect “Ist” must use the same set of complete days as Perfect+potential. Never swap in period `cost_dynamic`.
-- **B6 forbidden:** keep `sensor.tarifvergleich_modul3_ct`.
-- Python changes need a **Core restart**. Dashboard YAML: hard frontend reload.
-- Do not add `energy_tariff_compare:` to `configuration.yaml`.
+---
 
-Python tests (from `/config/energy_tariff_compare/tests` or Samba `/Volumes/config/.../tests`):
+## 2. Hard Rules & Architektur-Invarianten
 
-```bash
-python3 test_aggregates.py
-python3 test_async_callbacks.py
-python3 test_collector_slots.py
-python3 test_import_inexogy.py
-python3 test_incomplete_prices.py
-python3 test_price_units.py
-python3 test_spot_repair.py
-python3 test_tesla_and_gaps.py
-python3 test_windows.py
+1. **Abrechnungsgrundlage:**  
+   Die Tarifberechnung basiert **ausschließlich auf dem gemessenen Netzbezug** (*Grid Import*) des Smart Meters (z. B. Discovergy / Inexogy / Pulse). PV-Erzeugung oder Hausverbrauch fließen nicht in die Tarifkosten ein.
+2. **15-Minuten-UTC-Raster:**  
+   Verbrauch und Spotpreise werden minutengenau auf geschlossene UTC-Slots gebucht (`00:00`, `00:15`, `00:30`, `00:45`).
+3. **Zeitzone & Sommer-/Winterzeit (DST):**  
+   Zeitzone ist `Europe/Berlin`. Ein vollständiger Tag besteht aus:
+   * **96 Slots** an normalen Tagen
+   * **92 Slots** am Frühling-DST-Umschalttag (23 Stunden)
+   * **100 Slots** am Herbst-DST-Umschalttag (25 Stunden, inkl. Fold-Behandlung)
+4. **Nord Pool Börsenpreise:**  
+   Börsenstrompreise werden einheitlich von `EUR/MWh` durch 1000 in **`EUR/kWh`** umgerechnet.
+5. **Fehlende Börsenpreise (Spot Outage):**  
+   Sind für ein Intervall keine Börsenpreise vorhanden, werden dynamische Tarife für dieses Intervall und den Tag strikt als `None` / `unknown` geführt (keine verfälschten Teilsummen). Feste Tarife (Heat/Fix) bleiben als Zahl berechenbar (`_sum_if_complete`).
+6. **Theoretisches Optimum (*Perfect*):**  
+   *Perfect* sortiert die gemessenen 15-Minuten-kWh-Blöcke auf die günstigsten Zeitfenster **desselben Tages** um (kein unphysikalisches Verschieben der gesamten Tageslast in eine einzige Viertelstunde).
+   * **Invariante C2:** Der *Perfect*-Ist-Vergleichswert muss exakt denselben Satz vollständiger Tage wie der *Perfect*-Potenzialwert verwenden (`paired_m3`, `paired_flat`).
+7. **A3-Tesla-Invariante (Wallbox Lifetime-kWh):**  
+   * Wallbox-Kosten = Lade-kWh × Slot-Arbeitspreis (reine Obergrenze, keine Rechnungslegung).
+   * `last_tesla` und Zähler-Metadaten dürfen nur vorrücken, wenn das Delta auf einer gültigen Intervallzeile gebucht wurde oder es die erste Baseline ist.
+   * Bei mehrfachen Intervall-Lücken (> 20 Min.) wird das Delta in `meta.tesla_pending_kwh` zwischengespeichert und auf dem nächsten gültigen 15-Minuten-Slot nachgebucht (*Flush*).
+8. **Sensor-Integrität (Invariante B6):**  
+   Der Sensor `sensor.tarifvergleich_modul3_ct` muss zwingend erhalten bleiben.
+9. **Leichtgewichtige Systemarchitektur:**  
+   Keine schweren Drittanbieter-Erweiterungen (kein InfluxDB, kein Grafana, kein MariaDB, kein Node-RED). Nur Home Assistant Core, SQLite und Mushroom / mini-graph-card im Dashboard.
+
+---
+
+## 3. Repository-Struktur
+
+```text
+├── custom_components/
+│   └── energy_tariff_compare/          # Home Assistant Custom Component
+│       ├── const.py                    # Konstanten, IDs, Migrationsschlüssel
+│       ├── tariffs.py                  # Tarifberechnungslogik, Zeitfenster & Validierung
+│       ├── store.py                    # SQLite Speicher- & Migrationslogik
+│       ├── collector.py                # 15-Min-Erfassung, Lückenreparatur & Aggregate
+│       └── sensor.py                   # Home Assistant Sensoren & Registry-Migration
+├── dashboards/
+│   └── energie_tarifvergleich.yaml     # Lovelace UI Dashboard (3 Tabs: Übersicht, Preise, Details)
+├── energy_tariff_compare/
+│   ├── tariffs.example.yaml            # Vorlage für eigene Stromtarife
+│   ├── scripts/
+│   │   └── import_inexogy.py           # Importskript für historische Smart-Meter-CSVs
+│   └── tests/                          # 9 eigenständige Python-Test-Suites
+└── README.md, INSTALL.md, ...          # Deutsche Dokumentation & Setup-Anleitungen
 ```
 
+---
 
-## Deutsch — Umgebung
+## 4. Unterstützte Tarif-Modelle
 
-| Was | Pfad |
-|---|---|
-| Custom component | `/config/custom_components/energy_tariff_compare/` |
-| YAML, Tests, Doku | `/config/energy_tariff_compare/` |
-| SQLite | `/config/energy_tariff_compare/data/energy.sqlite` |
-| Dashboard | `/config/dashboards/energie_tarifvergleich.yaml` |
-| Tarife | `/config/energy_tariff_compare/tariffs.yaml` |
-| Samba (Mac) | `/Volumes/config/` = `/config/` |
-| GitHub-Snapshot ohne sqlite/CSV | `~/Documents/HomeAssistant/energie-tarifvergleich-github-2026-08-23/` |
+| ID | Modell | Typ | Beschreibung |
+|---|---|---|---|
+| `octopus_heat` | Time-of-Use | `fix_all_in` | Referenztarif (z. B. Octopus Heat mit Standard-, Niedrig- und Hochpreis-Fenstern) |
+| `octopus_heat_loyalty` | Time-of-Use | `fix_all_in` | Hypothetischer Folgetarif mit Loyalty-Konditionen |
+| `fix_tarif` | Festpreis | `fix_all_in` | Klassischer Festpreistarif (Arbeitspreis + Grundpreis) |
+| `dynamic` | Dynamisch Börse | `dynamic_retail` | Spotpreis + Steuern, Umlagen und Versorger-Aufschlag (Tibber-Logik) |
+| `dynamic_modul3` | Dynamisch + §14a | `dynamic_retail` | Dynamischer Tarif kombiniert mit Westnetz Modul 3 (NT/ST/HT-Netzentgelte) und §14a-Pauschale |
+| `dynamic_perfect` | Optimum | `dynamic_perfect` | Rechnerisches Optimum bei freier Lastverschiebung am selben Tag |
 
-ChatGPT-TXT-Schleife liegt im YAML-Ordner. Index: `grok-index-fuer-codex-2026-08-23.txt`.
+---
 
+## 5. Tests & Verifikation
 
-## Was das Ding tut
+Vor jedem Commit oder Pull Request **müssen alle 9 Test-Suites fehlerfrei durchlaufen**:
 
-Alle 15 Minuten (Minute 0/15/30/45 + 20 s) wird der **geschlossene** UTC-Slot gebucht:
+```bash
+cd energy_tariff_compare/tests
 
-- Netzbezug Discovergy `total_increasing` kWh
-- optional Tesla Wall Connector Lifetime-kWh (Kosten = Lade-kWh × Arbeitspreis, Obergrenze, keine Rechnung)
-- Nord Pool GER Spot, Service immer **EUR/MWh / 1000 → EUR/kWh**
+python3 test_windows.py
+python3 test_price_units.py
+python3 test_collector_slots.py
+python3 test_aggregates.py
+python3 test_tesla_and_gaps.py
+python3 test_async_callbacks.py
+python3 test_spot_repair.py
+python3 test_import_inexogy.py
+python3 test_incomplete_prices.py
+```
 
-Verglichene Tarife:
+---
 
-| ID | Rolle |
-|---|---|
-| `octopus_heat` | Live-Vertrag, all-in brutto, Referenz |
-| `octopus_heat_loyalty` | hypothetisch |
-| `fix_tarif` | hypothetisch, fixer Tarif / Festpreis |
-| `dynamic` | hypothetisch Tibber-ähnlich |
-| `dynamic_modul3` | dasselbe + Westnetz Modul 3 NT/ST/HT + §14a |
-| Perfect | nachträglich, nur vollständige Tage |
+## 6. Verhaltensregeln für KIs
 
-Anzeige Arbeit (ct/kWh bzw. EUR) und Grundgebühr (€) getrennt. §14a nicht in Grund/Fix mischen.
-
-Zeitzone `Europe/Berlin`, DST 92 / 96 / 100 Slots.
-
-
-## A3-Invariante (0.1.6, MUSS halten)
-
-`last_tesla`, `last_tesla_source_updated_utc`, `tesla_count_started_utc` dürfen nur vorrücken, wenn das Tesla-Delta **auf einer Intervallzeile** liegt oder es die **erste Baseline** ist (`last_tesla` noch leer).
-
-Konkret:
-
-1. Leere `backfilled`/`repaired`-Zeile: `tesla_kwh` mergen, Netz-kWh bleiben, dann Meta.
-2. Zeile hat schon `tesla_kwh`: **addieren** (1 + 3 = 4), dann Meta.
-3. Mehrintervall / `unallocated` (Span > 20 min): `tesla_kwh` bleibt None auf dieser Zeile, `last_tesla` bleibt, Delta nach `meta.tesla_pending_kwh`. Nächster **einzelner** 15-Min-Slot mit `span_ok` bucht das Delta (`tesla_pending_flushed`) und löscht Pending.
-
-Code: `store._merge_tesla_into_prior`, `store.commit_live_collect` (Tesla-Meta-Filter), `collector.collect_tick` (`write_tesla`, Pending, Flush).
-
-Tests: `test_tesla_and_gaps.py` — `run_protected_tesla`, `run_occupied_tesla`, Unallocated 10→16 plus Flush.
-
-
-## Weitere Invarianten, die sitzen müssen
-
-- Fehlender Spot: Dynamisch / Modul 3 Arbeit **und** Gesamt `None`, Heat bleibt Zahl. Monat/Jahr `_sum_if_complete`. Wallbox-Dynamikkosten ebenso.
-- `ranking_complete` Monat/Jahr: zusätzlich `days_with_data == days_expected`.
-- `spot_day_complete`: 15-Min-Raster, nicht Count. 96×5 min ≠ komplett.
-- YAML-Reload: Tage = `daily` ∪ Intervall-`local_day` ∪ heute. In-Memory-Config erst nach erfolgreichem Reprice. Startup unter `collect_lock`.
-- `parse_float`: NaN/Inf → None.
-- Grün: `cheapest_current_ids`, kein `float(999)`.
-- Recorder ist Allowlist, wenn `include` gesetzt ist — nicht nur zwei Sensoren whitelisten.
-
-
-## Dashboard
-
-Drei **Tabs im YAML-Dashboard**, nicht extra in der Sidebar:
-
-1. Übersicht `path: vergleich` — Jetzt-Preise, Haus, 24 h, Heute/Gestern Gesamt, kompakter Monat/Jahr
-2. Preise `path: preise` — Woche mini-graph 168 h, Monat statistics-graph hour, Jahr day
-3. Details `path: details` — Arbeit / Grund / §14a / Perfect / Wallbox
-
-Alle drei: `show_icon_and_title: true`.
-
-Erlaubt: Mushroom, mini-graph-card. Sonst nichts Neues.
-
-Monatszeile: `Gesamt: Heat … · Dynamisch … · Modul 3 …` — Heat nicht als fest verdrahteter Sieger.
-
-
-## Was du nicht bauen sollst
-
-- C2, B6 (siehe oben)
-- B3 Event-Dedup, B4 Gap-Scan umbauen, B5 Attribute ausdünnen, C5 lovelace.mode — nur bei messbarem Problem
-- Lastmanagement, Wallbox-Steuerung, dynamisches Laden
-- sqlite über Samba ersetzen, WAL/SHM löschen während HA läuft
-
-
-## Nach einer Code-Änderung
-
-1. Die neun `test_*.py` ausführen.
-2. Keine Secrets in Diffs/TXT.
-3. Snapshot ohne sqlite/CSV nach `energie-tarifvergleich-github-2026-08-23/` kopieren.
-4. **Core neu starten** für Python. Dashboard-YAML: Frontend hart neu laden.
-
+1. **Keine sensiblen Daten committen:** Niemals Zählernummern, Passwörter, Tokens, SQLite-Datenbankdateien (`*.sqlite`) oder private Messwert-CSVs ins Git schreiben.
+2. **Idempotente Migrationen:** Änderungen an Datenbanktabellen in `store.py` müssen immer rückwärtskompatibel und idempotent sein.
+3. **Dokumentation:** Die offizielle Projektdokumentation wird primär auf **Deutsch** gepflegt.
+4. **Code-Qualität:** Änderungen an asynchronen Methoden in Home Assistant müssen benannte Callback-Funktionen nutzen (`async_call_later`, `async_track_time_change`), niemals blockierende Worker-Threads im Event-Loop blockieren.
