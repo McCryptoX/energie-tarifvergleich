@@ -1,0 +1,114 @@
+# ANTIGRAVITY / GEMINI -> GROK: IDEEN, BEWERTUNG DER CODEX-VORSCHLÄGE & FEEDBACK
+Stand: 23.08.2026
+Version: 0.1.7 (split-costs-v3-tesla-v2)
+Von: Google Antigravity / Gemini
+Für: Grok (und Marco)
+
+Pfade:
+- Samba (HA): /Volumes/config/energy_tariff_compare/antigravity-ideen-fuer-grok-2026-08-23.txt
+- Ausführlicher Bericht: /Volumes/config/energy_tariff_compare/antigravity-codequalitaet-2026-08-23.txt
+
+
+================================================================================
+1. ZUSAMMENFASSUNG & STATUS DES STANDS 0.1.7
+================================================================================
+- Codequalität: Exzellent (Note 1-). Klare Schichtentrennung, sauberes Locking, async/executor-I/O, WAL-SQLite.
+- Teststatus: 9/9 PASS (test_aggregates, test_async_callbacks, test_collector_slots, test_import_inexogy, test_incomplete_prices, test_price_units, test_spot_repair, test_tesla_and_gaps, test_windows).
+- Pi-3-Ressourcen: Optimal (Recorder schließt alle Sensoren aus, keine UI-Plugins über Mushroom & mini-graph-card hinaus, keine Animationen).
+- Live-Freigabe: Stand 0.1.7 ist stabil und produktionsreif.
+
+
+================================================================================
+2. FEEDBACK ZU DEN CODEX-VORSCHLÄGEN (WAS WIR ANDERS SEHEN / MACHEN)
+================================================================================
+
+1. Codex A1–A4 (Korrektheits-Befunde):
+   - A1 (Tarif-Reload Repricing): War ein echter Bug, von Grok in 0.1.6/0.1.7 mit apply_tariff_config_change + reprice_day perfekt gelöst.
+   - A2 (Spot-Lücken): War ein echter Bug, durch _sum_if_complete und ranking_complete gelöst.
+   - A3 (Tesla Baselines): War ein echter Bug, durch 0.1.7 (Bootstrap ohne Netz, Pending-Buffer, Extra-Reset, Zero-Grid Merge) gelöst.
+   - A4 (Grüne Karten bei Fehler): War ein echter UI-Bug, durch cheapest_current_ids gelöst.
+
+2. Codex C2 (Perfect-Ist aus cost_dynamic lesen) — KRITISCHER LOGIKFEHLER VON CODEX:
+   - Codex schlug vor: "In den Perfect-Tabellen Ist direkt aus cost_dynamic lesen".
+   - Unser Urteil: ENTSCHIEDEN ABLEHNEN.
+   - Grund: cost_dynamic im Monat/Jahr summiert alle Tage mit Daten (auch unvollständige). Perfect gilt rein mathematisch nur für 100% vollständige Tage (complete_days).
+     Würde man cost_dynamic als Ist ansetzen, vergleicht man die Kosten von z.B. 25 Tagen mit der Untergrenze von nur 20 Tagen. Groks Mengen-Schnittmenge (paired_m3 / paired_flat) ist die einzig mathematisch konsistente Lösung!
+
+3. Codex B6 (sensor.tarifvergleich_modul3_ct löschen) — ABLEHNEN:
+   - Unser Urteil: Sensor behalten (Regel per AGENTS.md).
+   - Grund: Home Assistant Langzeitstatistiken und Diagramme im Reiter "Preise" benötigen das Sensor-Entity. Das Entity schadet auf dem Pi 3 nicht, da es ohnehin vom Recorder ausgeschlossen ist.
+
+4. Codex A3 (Tesla unallocated Verfall):
+   - Codex schlug vor, Tesla-Deltas bei Spannen > 20 min einfach als unallocated verfallen zu lassen.
+   - Unser Urteil: Groks Pufferung via `tesla_pending_kwh` mit Flush auf dem nächsten sauberen Slot ist wesentlich robuster, da Wallbox-Zählerstände kumulativ sind und keine geladenen kWh verloren gehen dürfen.
+
+
+================================================================================
+3. KONKRETE IDEEN & CODE-OPTIMIERUNGEN FÜR GROK (PRIORISIERT)
+================================================================================
+
+[KANN-1] Deduplizierung der Perfect-/Potenzialberechnung in collector.py
+-----------------------------------------------------------------------
+In collector.py ist die Ermittlung der vollständigen Tage und Perfect-Potenziale zwischen `rebuild_month` (Z. 729–761) und `rebuild_year` (Z. 806–838) über ~30 Zeilen identisch dupliziert.
+
+Vorschlag: Eine gemeinsame Hilfsfunktion extrahieren:
+```python
+def _aggregate_perfect_potentials(days: list[dict]) -> tuple[list[dict], list[dict], float | None, float | None, float | None, float | None]:
+    complete_days = [
+        row for row in days
+        if int(row.get("intervals_due") or 0) == int(row.get("intervals_expected") or -1)
+        and int(row.get("intervals_missing") or 0) == 0
+        and int(row.get("price_intervals_missing") or 0) == 0
+    ]
+    paired_m3 = [row for row in complete_days if row.get("cost_dynamic_perfect") is not None and row.get("cost_dynamic_modul3") is not None]
+    paired_flat = [row for row in complete_days if row.get("cost_dynamic_flat_perfect") is not None and row.get("cost_dynamic") is not None]
+    perfect = _round_or_none(sum(float(row["cost_dynamic_perfect"]) for row in paired_m3) if paired_m3 else None)
+    perfect_flat = _round_or_none(sum(float(row["cost_dynamic_flat_perfect"]) for row in paired_flat) if paired_flat else None)
+    potential = _round_or_none(sum(float(row["cost_dynamic_modul3"]) for row in paired_m3) - float(perfect) if perfect is not None else None)
+    potential_dynamic = _round_or_none(sum(float(row["cost_dynamic"]) for row in paired_flat) - float(perfect_flat) if perfect_flat is not None else None)
+    return complete_days, paired_m3, paired_flat, perfect, perfect_flat, potential, potential_dynamic
+```
+- Nutzen: DRY-Prinzip, garantiert konsistente Aggregation für Monat und Jahr, reduziert Codezeilen.
+- Risiko: 0. Pi-3-Kosten: 0.
+
+
+[KANN-2] Bereinigung des toten Fallback-Blocks in sensor.py
+----------------------------------------------------------
+In `sensor.py:116–121` (`PricesSensor.extra_state_attributes`):
+```python
+if "cheapest_current_ids" not in prices:
+    ids = cheapest_working_price_ids(prices)
+    prices["cheapest_current_ids"] = ids
+    prices["cheapest_current_id"] = ids[0] if len(ids) == 1 else None
+    prices["cheapest_current_value"] = None if not ids else prices.get(ids[0])
+    prices["current_prices_complete"] = all(prices.get(tid) is not None for tid in COST_KEYS)
+```
+Da `collector.current_prices()` diese Attribute immer liefert, ist dieser Block toter Code und kann entfernt werden.
+- Nutzen: Schlankerer Code, weniger kognitive Last beim Lesen.
+- Risiko: 0. Pi-3-Kosten: 0.
+
+
+[KANN-3] Zusätzlicher Edge-Case-Test für isolierten Tesla-Verbindungsabbruch
+---------------------------------------------------------------------------
+In `test_tesla_and_gaps.py` den Fall testen, wenn Discovergy normal läuft (`span_ok = True`), aber die Wallbox für 2 Stunden offline war und dann wiederkehrt (`tesla_span > 20 min`, `tesla_span_ok = False`), um sicherzustellen, dass das aufgelaufene Delta in den Pending-Puffer wandert und im nächsten Slot sauber geflusht wird.
+- Nutzen: 100% Testabdeckung aller Kombinationsmöglichkeiten.
+- Risiko: 0.
+
+
+================================================================================
+4. WAS GROK WEITERHIN NICHT TUN SOLLTE (LEITPLANKEN)
+================================================================================
+- C2 NICHT anrühren: Perfect-Ist bleibt an die Menge vollständiger Tage gekoppelt.
+- B6 NICHT anrühren: sensor.tarifvergleich_modul3_ct bleibt erhalten.
+- Keine weiteren Custom-Cards oder schwere Add-ons (kein ApexCharts, card-mod, InfluxDB, Grafana).
+- Keine Schreibzugriffe auf SQLite über Samba bei laufendem Home Assistant.
+- Keine aktive Steuerung von Wallbox, Batterie oder Heizstab (reines Monitoring).
+
+
+================================================================================
+5. EMPFOHLENE NÄCHSTE SCHRITTE FÜR GROK
+================================================================================
+1. Stand 0.1.7 als stabil und fertiggestellt bestätigen.
+2. Snapshot in `energie-tarifvergleich-github-2026-08-23/` auf Stand 0.1.7 bringen.
+3. Bei Gelegenheit KANN-1 (Deduplizierung) und KANN-2 (toter Code) einpflegen.
+4. Codex' UI-Prüfbericht (`codex-ui-pruefung-2026-08-23.txt`) zur Kenntnis nehmen (UI ist haltbar, keine P1/P2 Fehler).

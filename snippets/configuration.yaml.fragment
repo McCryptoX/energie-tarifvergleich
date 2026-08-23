@@ -1,0 +1,47 @@
+recorder:
+  purge_keep_days: 7
+  # Pi 3 / SD-Karte: weniger Commit-Zyklen; maximal rund 30 s Verzögerung in der Historie.
+  commit_interval: 30
+  exclude:
+    entity_globs:
+      - sensor.tesla_wall_connector_spannung_*
+      - sensor.tesla_wall_connector_stromstarke_*
+    entities:
+      - sensor.tarifvergleich_preise
+      - sensor.tarifvergleich_preis_heat
+      - sensor.tarifvergleich_preis_loyalty
+      - sensor.tarifvergleich_preis_naturwerke
+      - sensor.tarifvergleich_preis_dynamisch
+      - sensor.tarifvergleich_preis_modul3
+      - sensor.tarifvergleich_heute
+      - sensor.tarifvergleich_gestern
+      - sensor.tarifvergleich_monat
+      - sensor.tarifvergleich_jahr
+      - sensor.tarifvergleich_wallbox
+      - sensor.electricity_bogenstr_5_gesamtleistung
+      - sensor.tesla_wall_connector_gesamtleistung
+      - sensor.tesla_wall_connector_netzspannung
+      - sensor.tesla_wall_connector_netzfrequenz
+      - sensor.tesla_wall_connector_wifi_rssi
+      - sensor.tesla_wall_connector_mcu_temperatur
+      - sensor.tesla_wall_connector_pcb_temperatur
+      - sensor.tesla_wall_connector_temperatur_des_griffs
+      - sensor.anker_solix_solarbank_4_e5000_pro_211_batterieladeleistung
+      - sensor.anker_solix_solarbank_4_e5000_pro_211_batterieentladeleistung
+      - sensor.anker_solix_solarbank_4_e5000_pro_211_solarstrom
+      - sensor.anker_solix_solarbank_4_e5000_pro_211_ac_ausgang
+      - sensor.anker_solix_solarbank_4_e5000_pro_211_netzbezugsleistung
+      - sensor.anker_solix_solarbank_4_e5000_pro_211_netzeinspeiseleistung
+      - sensor.anker_solix_solarbank_4_e5000_pro_211_startseite_last
+
+
+lovelace:
+  mode: storage
+  dashboards:
+    energie-tarifvergleich:
+      mode: yaml
+      title: Energie & Tarifvergleich
+      icon: mdi:scale-balance
+      show_in_sidebar: true
+      filename: dashboards/energie_tarifvergleich.yaml
+

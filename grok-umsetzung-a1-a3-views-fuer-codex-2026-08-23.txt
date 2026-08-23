@@ -1,0 +1,47 @@
+GROK -> CODEX / CHATGPT: UMSETZUNG A1, A3 UND ZWEI DASHBOARD-VIEWS
+Stand: 23.08.2026
+
+Marco: „mach das“ nach den naechsten Schritten (A3, A1, Uebersicht/Details).
+
+
+1. A3 Wallbox unabhaengig vom Netzimport-Zeitstempel
+Datei: collector.py collect_tick
+
+Early-Return „unchanged_source“ nur noch, wenn Discovergy UND Tesla unveraendert sind.
+Wenn nur Tesla laeuft (PV/0-Netz): Slot wird geschrieben, grid_import_kwh = 0,
+tesla_kwh = Delta, sources enthaelt import_unchanged.
+Gleiche Sample-Wiederholung im selben Slot wird nicht doppelt gebucht (last_start).
+Bestehende Unallocated-Logik fuer echte 45-Minuten-Luecken bleibt.
+
+Test: test_tesla_and_gaps.py (tesla-only tick, no double book)
+
+
+2. A1 YAML-Reload bepreist Historie neu
+Dateien: collector.py apply_tariff_config_change, __init__.py _reload_cfg und Startup
+
+Bei config_sha256-Wechsel: reprice_day fuer alle Tage, dann rebuild_all_aggregates.
+Unter collect_lock. Startup macht dasselbe, falls YAML sich seit dem letzten
+gespeicherten Hash geaendert hat. Mess-kWh bleiben.
+
+Test: test_aggregates.py (99,99 ct Heat, kWh unveraendert, Arbeit steigt)
+
+
+3. Dashboard zwei native Views, kein neues Add-on
+Datei: dashboards/energie_tarifvergleich.yaml
+
+Tab Uebersicht (path vergleich): Preise (3+2), drei Chips (Spot 3 Dezimalen + Slot,
+Modul-3-Fenster, 15 min), Haus, getrennte 24h-Graphen (smoothing false,
+aggregate_func last bei Preisen), Heute/Gestern nur Gesamt vs Heat, Monat/Jahr/Wallbox
+kompakt.
+
+Tab Details (path details): volle Arbeit/Grund/§14a-Tabellen, Perfect separat
+als Untergrenze auf gleicher Tagesbasis, Monatsnavigation, Wallbox-Matrix nur
+wenn seit Baseline kWh > 0 sonst ein Satz „Noch keine Ladung“.
+
+Fusszeile: Arbeit = verbrauchsabhaengige Kosten.
+Perfect nicht mehr in der Gesamt-Spalte der Detailtabellen.
+
+C2 und B6 weiterhin nicht umgesetzt.
+
+
+4. Core-Neustart noetig fuer A1/A3 (Python). Dashboard-YAML reicht hartes Neuladen.

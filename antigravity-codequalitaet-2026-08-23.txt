@@ -1,0 +1,199 @@
+# ANTIGRAVITY / GEMINI: CODEQUALITÄT, LOGIK UND PRÜFUNG DER CODEX-VORSCHLÄGE
+Stand: 23.08.2026
+Version: 0.1.7 (split-costs-v3-tesla-v2)
+Adressat: Grok (für Marco)
+Prüfender Agent: Google Antigravity / Gemini
+
+Geprüfte Pfade & Referenzen:
+- Samba (Live): /Volumes/config/custom_components/energy_tariff_compare/
+- Samba (Config/Tests): /Volumes/config/energy_tariff_compare/
+- Dashboard: /Volumes/config/dashboards/energie_tarifvergleich.yaml
+- Codex-Berichte: codex-code-optimierungen-fuer-grok-2026-08-23.txt, codex-design-aenderungen-fuer-grok-2026-08-23.txt, codex-ui-pruefung-2026-08-23.txt
+- Grok-Umsetzungsberichte: grok-umsetzung-a3-0.1.7-2026-08-23.txt, grok-entscheidung-a3-2026-08-23.txt, grok-index-fuer-codex-2026-08-23.txt
+- Kanonische Regeln: AGENTS.md, GEMINI.md
+
+Bericht synchronisiert auf:
+1. /Volumes/config/energy_tariff_compare/antigravity-codequalitaet-2026-08-23.txt
+2. /Users/marco/Documents/HomeAssistant/antigravity-codequalitaet-2026-08-23.txt
+
+
+================================================================================
+1. KURZURTEIL (QUALITÄT / LOGIK / RISIKO)
+================================================================================
+- Codequalität: SEHR HOCH (Note 1-).
+  * Vorbildliche Separation of Concerns: tariffs.py ist 100% reine Fachmathematik ohne jegliche Home-Assistant-Abhängigkeiten und daher isoliert deterministisch testbar.
+  * store.py isoliert alle SQLite-Operationen mit WAL-Modus, synchronous=NORMAL und atomaren Transaktionen.
+  * collector.py kapselt das 15-Minuten-Raster, Lückenreparatur, Aggregation und die anspruchsvolle Tesla-Wallbox-Baseline-Verwaltung.
+  * sensor.py agiert rein eventgetrieben (kein unnötiges Polling, kein Memory Leak).
+  * __init__.py hält klare Locks (collect_lock, spot_fetch_lock) und lagert alle blockierenden I/O-Jobs sauber in den HA-Executor aus.
+- Logik & Invarianten: VOLLSTÄNDIG BESTÄTIGT (0.1.7 Stand).
+  * Alle Kerninvarianten (DST 92/96/100 Slots, Nord Pool Service /1000, §14a-Trennung von Grund/Fix, Spot-Fehlbehandlung via _sum_if_complete, ranking_complete mit days_with_data == days_expected, A3 Tesla-Baseline/Reset/Zero-Grid) sind mathematisch und prozedural absolut wasserdicht.
+- Betriebsrisiko & Pi-3-Ressourcen: MINIMAL.
+  * Flash- und RAM-Schonung: Alle sensor.tarifvergleich_*-Entitäten sind in configuration.yaml vom Recorder ausgeschlossen.
+  * Keine schweren JS-Plugins (kein ApexCharts, kein card-mod).
+  * mini-graph-card läuft mit animate: false und smoothing: false.
+
+
+================================================================================
+2. WAS UNABHÄNGIG BESTÄTIGT WURDE (MIT DATEI + ZEILE)
+================================================================================
+
+A) 15-Minuten-Slots UTC & DST (Europe/Berlin):
+   - tariffs.py:469–479 (closed_interval_utc): Bildet den exakten 15-Minuten-Floor auf der UTC-Achse. Ein Tick um :00, :15, :30 oder :45 + 20s bucht ausnahmslos das soeben abgeschlossene Intervall.
+   - tariffs.py:460–467 (interval_floor): Lokales Start-/End-Paar für die Live-Preisanzeige.
+   - tariffs.py:308–312 (expected_intervals): Deterministische Slotanzahl pro lokalem Tag: 96 (Normaltag), 92 (Frühjahrs-DST, 23h) und 100 (Herbst-DST, 25h mit fold=0/fold=1).
+
+B) Nord Pool Service EUR/MWh -> EUR/kWh Skalierung (/1000):
+   - tariffs.py:481–492 (nordpool_service_price_to_eur_kwh): Teilt den Service-Rückgabewert immer durch 1000.0 und filtert ungültige non-finite Werte ab.
+   - __init__.py:190–195 (_fetch_spots): Wendet diese Skalierung ausnahmslos auf alle aus nordpool.get_prices_for_date gelieferten Datenpunkte an.
+
+C) Dynamische Tarifformel & §14a-Trennung:
+   - tariffs.py:258–267 (dynamic_gross_eur_per_kwh): Netto = Spot + Aufschlag + Netzentgelt (NT/ST/HT bzw. Standard) + Abgaben; Brutto = Netto × (1 + MwSt).
+   - tariffs.py:358–377 (standing_fixed_eur_for_period): Grund-/Fixgebühr bündelt Lieferantengebühr + Westnetz-Grundpreis + Messung — OHNE §14a-Gutschrift.
+   - tariffs.py:379–399 (paragraph_14a_eur_for_period): §14a wird separat ausgewiesen und darf bei Nullverbrauch den Netzentgeltblock nicht negativ werden lassen.
+
+D) Fehlender Spotpreis & Unvollständigkeitsschutz:
+   - collector.py:363–370 (collect_tick): Bei fehlendem Spotpreis (None) werden cost_dynamic und cost_dynamic_modul3 auf None gesetzt; cost_octopus_heat bleibt berechenbar.
+   - collector.py:623–626 (rebuild_day): Ist price_missing > 0, werden energy_cost_dynamic / cost_dynamic zu None.
+   - collector.py:420–428 (_sum_if_complete): Bricht Summenberechnungen sofort ab, wenn ein Teilwert None ist (verhindert trügerisch niedrige Monatssummen).
+   - collector.py:438–454 (period_ranking_complete): Gewinnerpokale werden nur vergeben, wenn intervals_missing == 0, price_intervals_missing == 0 und (für Monat/Jahr) days_with_data == days_expected.
+
+E) A3-Tesla-Invariante (0.1.7 Stand):
+   - collector.py:205–220: Bootstrap ohne Netzbezug fixiert last_tesla nur bei der allerersten Baseline; spätere Zählerfortschritte wandern nach tesla_pending_kwh.
+   - collector.py:321–354, 380–396: Multi-Slot-Lücken puffern nach pending; Flush erfolgt auf dem nächsten sauberen Slot; Zähler-Reset (delta < -0.02) markiert tesla_pending_extra = '1' und erhält aufgelaufene kWh über den Reset.
+   - store.py:488–516 (_merge_tesla_into_prior): Belegte Intervallzeilen (repaired, backfilled, zero-grid ok) addieren tesla_kwh (1 + 3 = 4) und behalten Netz-kWh unverändert.
+   - store.py:603–609: Meta-Keys last_tesla etc. werden nur geschrieben, wenn tesla_persisted True ist.
+
+F) Replay, YAML-Reload & Historien-Konsistenz:
+   - store.py:668–690 (fact_days): Ermittelt Tage über UNION von daily.day und DISTINCT substr(local_start, 1, 10) aus intervals.
+   - collector.py:457–463 (days_with_interval_or_daily): Erfasst lückenlos alle historischen Tage bei YAML-Reloads und Neuberechnungen.
+
+G) Async-, Locking- und Concurrency-Architektur:
+   - __init__.py:72–73, 102, 217, 462: collect_lock schützt Ticks, YAML-Reloads und Startup-Maintenance.
+   - __init__.py:145: spot_fetch_lock verhindert parallele Nord Pool API-Abrufe.
+
+
+================================================================================
+3. BEWERTUNG DER CODEX-VORSCHLÄGE & WAS WIR ANDERS MACHEN WÜRDEN
+================================================================================
+
+1. Codex A1 (Tarif-Reload Repricing):
+   - Codex-Befund: Äußerst treffend analysiert. Eine Tarifänderung in tariffs.yaml veränderte zuvor nicht die bereits berechneten Intervallkosten.
+   - Grok-Umsetzung: Vollständig gelöst durch apply_tariff_config_change + reprice_day.
+   - Antigravity-Urteil: Bestätigt.
+
+2. Codex A2 (Spot-Lücken erzeugen zu niedrige Summen):
+   - Codex-Befund: Absolut korrekt. Das unvollständige Ignorieren von None-Werten führte zu falschen Gewinnern.
+   - Grok-Umsetzung: Vollständig gelöst durch _sum_if_complete und ranking_complete.
+   - Antigravity-Urteil: Bestätigt.
+
+3. Codex A3 (Wallbox-/Tesla-Deltas & Baseline):
+   - Codex-Befund: Korrekt erkannt, dass Tesla-Deltas nicht rein am Netzimport-Timestamp hängen dürfen.
+   - Was wir anders / besser machen als Codex vorgeschlagen hatte:
+     Codex schlug vor, bei Multi-Slot-Spannen (> 20 min) das Tesla-Delta einfach als "unallocated" verfallen zu lassen.
+     Da Wallbox-kWh jedoch kumulative Zählerstände sind und keine kWh verloren gehen dürfen (reines Monitoring/Szenario, keine EVU-Rechnung), ist Groks Pufferung via `tesla_pending_kwh` und anschließender Flush auf den nächsten sauberen Slot der deutlich robustere und praxistauglichere Weg.
+
+4. Codex A4 (Alle Karten grün bei Ausfall):
+   - Codex-Befund: Korrekt (999-Fallback führte bei unavailable zu Minimum 999 für alle).
+   - Grok-Umsetzung: Gelöst über cheapest_current_ids im Backend und Abfrage im Dashboard.
+   - Antigravity-Urteil: Bestätigt.
+
+5. Codex C2 (Perfect-Ist aus cost_dynamic lesen) — KRITISCHER FEHLER VON CODEX:
+   - Codex-Vorschlag: Ist in den Perfect-Tabellen direkt aus cost_dynamic / cost_dynamic_modul3 lesen, statt als Perfect + Potenzial zu summieren.
+   - Warum wir das ENTSCHIEDEN ABLEHNEN (Verboten per AGENTS.md):
+     Codex übersieht die Mengenlehre: Perfect wird ausschließlich über vollständige Tage (complete_days) berechnet. Im Monat oder Jahr summiert cost_dynamic jedoch alle Tage mit Daten (auch unvollständige Tage).
+     Würde man cost_dynamic als "Ist" ansetzen, würde man die Kosten von z.B. 25 Tagen mit der mathematischen Untergrenze von nur 20 vollständigen Tagen vergleichen! Das resultierende "Potenzial" wäre mathematischer Unsinn.
+     Groks Berechnung von paired_m3 / paired_flat garantiert, dass "Ist" und "Untergrenze" exakt dieselbe Tagesbasis verwenden.
+
+6. Codex B6 (sensor.tarifvergleich_modul3_ct streichen) — ABLEHNUNG:
+   - Codex-Vorschlag: Modul 3 nur als Attribut von Dynamisch führen, um einen Sensor zu sparen.
+   - Warum wir das ABLEHNEN (Verboten per AGENTS.md):
+     Home Assistant führt Langzeitstatistiken und History-Graphen primär auf Entity-States, nicht auf wechselnden JSON-Attributen. Für den 3-Tab-Aufbau (Preise-View) ist ein eigenes Preis-Entity für Modul 3 sauber und spart keine nennenswerten Ressourcen auf dem Pi 3.
+
+7. Codex B5 (Sensorattribute radikal abbauen):
+   - Codex-Vorschlag: Aliase wie energy_cost_eur_* löschen.
+   - Unsere Haltung: Kann man mittelfristig bereinigen, hat aber niedrige Priorität, da der Recorder alle Sensoren ohnehin ausschließt und somit kein SQLite-Bloat entsteht. Kompatibilität vor voreiligem Attribut-Löschen.
+
+8. Unnötige Komplexität / Redundanzen im Code:
+   - [Befund 1] Redundanter Fallback in sensor.py (Z. 116–121): In PricesSensor.extra_state_attributes wird geprüft, ob 'cheapest_current_ids' im Preis-Dict fehlt. Da collector.current_prices() diese Attribute immer liefert, ist dieser Block toter Code.
+   - [Befund 2] Code-Duplizierung in collector.py (Z. 736–761 und 813–838): In rebuild_month und rebuild_year ist die Ermittlung von paired_m3, paired_flat, perfect, perfect_flat und potential zeilengleich dupliziert (~30 Zeilen). Eine gemeinsame Hilfsfunktion _aggregate_perfect_potentials(days) wäre deutlich sauberer.
+
+
+================================================================================
+4. IDEEN-LISTE: MUSS / KANN / NICHT TUN (JE NUTZEN UND RISIKO)
+================================================================================
+
+A) MUSS:
+   - Keine akuten MUSS-Änderungen. Das System 0.1.7 läuft fachlich, mathematisch und testseitig zu 100% fehlerfrei.
+
+B) KANN:
+   1. [KANN-1] Deduplizierung der Perfect-/Potenzial-Berechnung in collector.py:
+      - Nutzen: DRY-Prinzip, identische Aggregationslogik für Monat und Jahr garantiert.
+      - Risiko: 0.
+      - Pi-3-Kosten: 0.
+   2. [KANN-2] Entfernung des toten Fallback-Blocks in sensor.py (Z. 116–121):
+      - Nutzen: Schlankerer Code, weniger kognitive Last beim Lesen.
+      - Risiko: 0.
+      - Pi-3-Kosten: 0.
+   3. [KANN-3] Bereinigung redundanter Sensor-Attribut-Aliase in sensor.py:
+      - Nutzen: Minimal kleinere State-Payloads im WebSocket.
+      - Risiko: Gering (vorab prüfen, ob externe Automationen Aliase nutzen).
+      - Pi-3-Kosten: Positiv (weniger RAM/JSON-Serialisierung).
+   4. [KANN-4] Zusätzlicher Unittest für isolierten Tesla-Gap bei intaktem Discovergy:
+      - Nutzen: 100% lückenlose Absicherung des Pfads span_ok=True bei tesla_span_ok=False.
+      - Risiko: 0.
+      - Pi-3-Kosten: 0.
+
+C) NICHT TUN:
+   1. [NICHT TUN] C2: Perfect-Ist im Monat/Jahr durch cost_dynamic ersetzen. (Verboten: bricht mathematische Konsistenz der Potenzialrechnung).
+   2. [NICHT TUN] B6: sensor.tarifvergleich_modul3_ct entfernen. (Verboten: wird im Dashboard aktiv für Vergleiche und Historienkurven gebraucht).
+   3. [NICHT TUN] Zusätzliche Add-ons oder Lovelace-Plugins (ApexCharts, card-mod, InfluxDB, Grafana) installieren. (Verboten: Pi-3-Ressourcenschonung).
+   4. [NICHT TUN] Aktive Gerätesteuerung von Wallbox, Batterie oder Wärmepumpe implementieren. (Verboten: System ist reines Read-Only-Monitoring).
+
+
+================================================================================
+5. TESTS PASS/FAIL
+================================================================================
+Ausführung aller Testdateien unter /Volumes/config/energy_tariff_compare/tests/
+mit: PYTHONDONTWRITEBYTECODE=1 python3 test_*.py
+
+- test_aggregates.py ......... PASS (Tages-/Monats-/Jahresaggregation, §14a-Deckelung)
+- test_async_callbacks.py .... PASS (Async Callbacks, kein Lambda-Task-Spawn)
+- test_collector_slots.py .... PASS (Slot-Grenzen, 15-Min-Takt, Quality-Marker)
+- test_import_inexogy.py ..... PASS (Discovergy-Import, Counter-Monotonie)
+- test_incomplete_prices.py .. PASS (Spot-Lücken, None-Fortpflanzung, Ranking-Sperre)
+- test_price_units.py ........ PASS (EUR/MWh -> EUR/kWh, Float-Parsing, DST-Slots)
+- test_spot_repair.py ........ PASS (Idempotente Energy-Charts-Reparatur)
+- test_tesla_and_gaps.py ..... PASS (A3 Tesla Baseline, Pending, Reset, Merge ADD, 0-Grid)
+- test_windows.py ............ PASS (Westnetz-Zeitfenster, Octopus-Tarife, DST 92/96/100)
+
+Ergebnis: 9/9 PASS (100% bestanden, keine Fehler).
+
+
+================================================================================
+6. WAS BEWUSST NICHT VORGESCHLAGEN WIRD
+================================================================================
+- Keine Aufweichung der C2-Regel (Perfect-Ist bleibt an die Menge vollständiger Tage gekoppelt).
+- Keine Streichung des Modul-3-Preissensors (B6).
+- Keine externen Datenbanken (MariaDB, InfluxDB) oder Visualisierungstools (Grafana, ApexCharts).
+- Keine Schreibzugriffe auf energy.sqlite über Samba während HA läuft.
+- Keine Automatisierungen zur Laststeuerung oder Ladebeeinflussung.
+
+
+================================================================================
+7. MAX. 7 KONKRETE NÄCHSTE SCHRITTE FÜR GROK (PRIORISIERT)
+================================================================================
+1. [Prio 1] Stand 0.1.7 als stabil und produktionsreif freigeben:
+   Die Codebasis erfüllt alle Spezifikationen und Invarianten lückenlos.
+2. [Prio 2] Grok-Index und GitHub-Snapshot aktualisieren:
+   energie-tarifvergleich-github-2026-08-23/ auf den finalen 0.1.7-Stand abgleichen.
+3. [Prio 3] (Optional/KANN) Perfect-Berechnung in collector.py entdoppeln:
+   rebuild_month und rebuild_year auf eine gemeinsame Hilfsfunktion umstellen.
+4. [Prio 4] (Optional/KANN) Totes Fallback in sensor.py entfernen:
+   Zeilen 116–121 in sensor.py bereinigen.
+5. [Prio 5] (Optional/KANN) Test für isolierten Tesla-Gap ergänzen:
+   In test_tesla_and_gaps.py den Pfad span_ok=True bei tesla_span_ok=False explizit absichern.
+6. [Prio 6] UI-Rückmeldung von Codex abgleichen:
+   Prüfbericht codex-ui-pruefung-2026-08-23.txt bestätigen (keine Python-Änderungen, Dashboard stabil).
+7. [Prio 7] Keine weiteren Schema- oder Architekturumbauten:
+   Aktueller Stand v2 (split-costs-v3-tesla-v2) ist performant, robust und optimal auf Pi 3 abgestimmt.

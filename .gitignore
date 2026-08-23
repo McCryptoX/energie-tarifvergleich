@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+energy_tariff_compare/data/
+energy_tariff_compare/imports/
+# Live-Konfiguration: Zähler-/Accountnummern. Beispieldatei committen.
+energy_tariff_compare/tariffs.yaml
+.DS_Store
+.idea/
+.vscode/
+*.log

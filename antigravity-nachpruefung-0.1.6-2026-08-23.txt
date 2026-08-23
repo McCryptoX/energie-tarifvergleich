@@ -1,0 +1,138 @@
+ANTIGRAVITY / GEMINI — NACHPRÜFBERICHT 0.1.6 (A3 REST)
+Datum: 23.08.2026
+Prüfer: Google Antigravity / Gemini
+Geprüfte Version: 0.1.6 (custom_components/energy_tariff_compare)
+Referenz-Vorgänger: chatgpt-nachpruefung-0.1.5-2026-08-23.txt / grok-umsetzung-a3-rest-0.1.6-2026-08-23.txt
+
+
+1. KURZURTEIL: A3 REST VOLLSTÄNDIG BEHOBEN (A3 REST IST WEG)
+============================================================
+Die in Version 0.1.5 verbliebene A3-Restlücke (potenzieller Delta-Verlust bei
+unallocated Mehrintervall-Sprüngen und Überschreiben bei bereits belegten
+Zeilen) ist in Version 0.1.6 vollständig und architekturkonform geschlossen:
+
+1. Der Meta-Filter in store.commit_live_collect filtert TESLA_META_KEYS
+   ('last_tesla', 'last_tesla_source_updated_utc', 'tesla_count_started_utc')
+   zuverlässig heraus, wenn tesla_persisted == False ist.
+2. Unzugeordnete Deltas (z. B. 10 -> 16 kWh über 45 min) rücken last_tesla
+   nicht vor, sondern werden als tesla_pending_kwh in den Metadaten gesichert.
+3. Der nächste reguläre, ungestörte 15-Minuten-Slot übernimmt das offene Delta
+   (tesla_pending_flushed), bucht die kWh und aktualisiert last_tesla.
+4. Bereits belegte geschützte Zeilen (backfilled/repaired) addieren neues
+   Tesla-Delta zum vorhandenen Wert (1 + 3 = 4 kWh), ohne den Netzbezug
+   anzutasten.
+5. Alle 9 Test-Suites (inklusive der erweiterten A3-Proben) laufen fehlerfrei durch.
+
+
+2. DIE ZWEI PROBEN IM LIVE-CODE MIT DATEI UND ZEILENNUMMERN
+===========================================================
+
+PROBE 1: MEHRINTERVALL / UNALLOCATED GAP (10 -> 16 kWh ÜBER 45 MIN)
+Status: OK / Behoben
+-------------------------------------------------------------------
+- collector.py:285-300: Bei Zeitspanne > MULTI_SLOT_SECONDS (45 min) wird
+  tesla_span_ok = False gesetzt.
+- collector.py:304-307: Da quality == 'unallocated', bleibt tesla_kwh = None.
+  Das Delta (6 kWh) wird in sources als 'unallocated_tesla_kwh=6.000000' vermerkt.
+- collector.py:352-354: Da tesla_kwh is None und last_tesla bereits existiert,
+  ist write_tesla = False.
+- collector.py:358-361: meta_updates['tesla_pending_kwh'] wird auf '6.0' gesetzt.
+- store.py:549-551, :583: In commit_live_collect ist tesla_persisted = False
+  (da row['tesla_kwh'] is None und existing_last vorhanden ist).
+- store.py:588-595: Da not tesla_persisted, werden alle Schlüssel in
+  TESLA_META_KEYS ('last_tesla', 'last_tesla_source_updated_utc',
+  'tesla_count_started_utc') aus meta_to_write herausgefiltert. last_tesla
+  bleibt in der Datenbank unverändert bei 10.0!
+- store.py:224-229, :595-604: tesla_pending_kwh gehört NICHT zu TESLA_META_KEYS
+  und wird daher erfolgreich in die meta-Tabelle geschrieben.
+- collector.py:308-316: Beim nächsten regulären 15-Min-Slot (span_ok == True,
+  quality != 'unallocated') greift die Flush-Bedingung: tesla_kwh = 6.0 wird
+  gebucht und sources erhält 'tesla_pending_flushed'.
+- collector.py:352-363 & store.py:583-604: write_tesla und tesla_persisted
+  sind nun True. last_tesla rückt auf 16.0 vor und tesla_pending_kwh wird
+  aus der meta-Tabelle gelöscht.
+- Test-Referenz: tests/test_tesla_and_gaps.py:207-246 bestätigt das Verhalten
+  vollständig (last_tesla bleibt 10.0, pending wird 6.0, Flush bucht 6.0,
+  last_tesla wird 16.0, pending wird gelöscht).
+
+
+PROBE 2: BELEGTE ZIELZEILE (OCCUPIED BACKFILLED / REPAIRED: 1 kWh + DELTA 3 kWh)
+Status: OK / Behoben
+--------------------------------------------------------------------------------
+- store.py:488-518 (_merge_tesla_into_prior):
+  - store.py:500-504: Liest den bisherigen Wert (old_value = 1.0) und addiert
+    das neue Delta (added = 1.0 + 3.0 = 4.0).
+  - store.py:506-509: Führt 'UPDATE intervals SET tesla_kwh=4.0, updated_at=?,
+    sources=? WHERE interval_start=?' aus.
+  - Netzbezug (grid_import_kwh) bleibt auf der Zeile vollständig erhalten.
+  - Gibt (actual, True, True) zurück -> tesla_persisted ist True.
+- store.py:566-569: In commit_live_collect wird tesla_persisted = True übernommen.
+- store.py:601-604: last_tesla wird korrekt auf 53.0 aktualisiert.
+- Test-Referenz: tests/test_tesla_and_gaps.py:180-205 (run_occupied_tesla)
+  testet sowohl 'backfilled' als auch 'repaired' Zielzeilen erfolgreich auf 4.0 kWh
+  und last_tesla = 53.0.
+
+
+ERGÄNZENDE PRÜFUNGEN:
+- Leerzeilen-Merge (0.1.5): store.py:501 setzt bei bisherigem tesla_kwh = None
+  old_value = 0.0 und trägt das neue Delta 3.0 sauber ein.
+  (tests/test_tesla_and_gaps.py:144-178 - PASS).
+- Tesla-only & Entprellung: collector.py:178-182 und store.py verhindern
+  Doppelbuchungen bei unverändertem Zählerstand.
+  (tests/test_tesla_and_gaps.py:114-142 - PASS).
+- Sensor-Attribut: sensor.py:443 exponiert tesla_pending_kwh auf
+  sensor.tarifvergleich_wallbox.
+- Stichprobe A1 / A2 / B1 / Dashboard:
+  - manifest.json: Version 0.1.6.
+  - sensor.py:380: sensor.tarifvergleich_modul3_ct bleibt erhalten (B6 OK).
+  - Dashboard dashboards/energie_tarifvergleich.yaml: Genau 3 Views
+    ('vergleich', 'preise', 'details'), alle mit show_icon_and_title: true.
+  - Dashboard Zeilen 388/396: Neutraler Text 'Gesamt: Heat ... · Dynamisch ... · Modul 3 ...'.
+  - Keine verbotenen Karten (kein card-mod, kein ApexCharts, kein layout-card, kein float(999)).
+  - Live-SQLite (mode=ro): Schema split-costs-v3-tesla-v2, PRAGMA quick_check: ok,
+    22.513 Intervalle, 53 heutige Slots ok.
+
+
+3. TESTS PASS / FAIL
+====================
+Alle 9 Testdateien wurden einzeln mit python3 und PYTHONDONTWRITEBYTECODE=1 ausgeführt:
+
+- test_aggregates.py:        PASS
+- test_async_callbacks.py:   PASS
+- test_collector_slots.py:   PASS
+- test_import_inexogy.py:    PASS
+- test_incomplete_prices.py: PASS
+- test_price_units.py:       PASS
+- test_spot_repair.py:       PASS
+- test_tesla_and_gaps.py:    PASS (inkl. A3-Proben 1 & 2)
+- test_windows.py:           PASS
+
+Ergebnis: 9/9 PASS, 0 FAIL.
+
+
+4. WAS ICH NICHT ÄNDERN WÜRDE
+==============================
+- C2 NICHT umsetzen: Perfect-Ist muss exakt dieselbe Menge vollständiger Tage
+  verwenden wie Perfect-Potenzial. Niemals cost_dynamic der gesamten Periode einsetzen.
+- B6 NICHT umsetzen: sensor.tarifvergleich_modul3_ct muss im Code bleiben.
+- Keine Add-ons installieren: Pi 3 schonen (kein Influx, Grafana, Node-RED,
+  AppDaemon, MariaDB, ApexCharts, card-mod oder layout-card).
+- Keine Gerätesteuerung: Tesla Wall Connector, Anker Solix und Vaillant bleiben
+  ausschließlich passiv/read-only.
+- SQLite nicht über Samba beschreiben oder ersetzen.
+- B3 / B4 / B5 / C5: Keine voreiligen Refactorings ohne messbares Problem.
+
+
+5. MAXIMAL FÜNF NÄCHSTE SCHRITTE FÜR MARCO
+===========================================
+1. Home Assistant Core neu starten: Damit die Python-Änderungen der Version 0.1.6
+   im laufenden Home Assistant geladen und wirksam werden.
+2. Dashboard-Frontend hart neu laden: Im Browser bzw. der HA Companion App die
+   Ansicht aktualisieren (Cache-Bypass), damit alle Kacheln synchron sind.
+3. Wallbox-Sensor kontrollieren: Unter Entwicklerwerkzeuge -> Zustände prüfen,
+   ob sensor.tarifvergleich_wallbox die Attribute 'tesla_count_started_utc' und
+   'tesla_pending_kwh' (im Leerlauf None/0) korrekt anzeigt.
+4. Ersten Ladevorgang beobachten: Bei der nächsten Autoladung verifizieren, dass
+   die Lade-kWh in 15-Minuten-Slots bzw. im Sensor plausibel anwachsen.
+5. System stabil laufen lassen: Keine weiteren Änderungen am Code erforderlich;
+   A3 ist vollständig abgeschlossen und abgesichert.

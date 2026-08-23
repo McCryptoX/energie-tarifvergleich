@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Energie & Tarifvergleich",
+        "description": "Sammelt 15-Minuten-Netzbezug und vergleicht Stromtarife. Steuert keine Geräte."
+      }
+    },
+    "abort": {
+      "already_configured": "Bereits eingerichtet"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today": { "name": "Heute" },
+      "yesterday": { "name": "Gestern" },
+      "month": { "name": "Monat" },
+      "year": { "name": "Jahr" },
+      "wallbox": { "name": "Wallbox-Laden" }
+    }
+  }
+}

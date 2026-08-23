@@ -1,0 +1,219 @@
+# EXAMPLE — copy to tariffs.yaml and set your entity IDs.
+# Do not commit live account/meter numbers to a public repository.
+
+# Zentrale Tarifkonfiguration — Preise hier ändern, nicht im Python-Code.
+# Alle ct/kWh und EUR-Beträge sind die Werte, mit denen gerechnet wird.
+
+timezone: Europe/Berlin
+
+entities:
+  grid_import: sensor.grid_import_energy
+  grid_export: sensor.grid_export_energy
+  nordpool_current: sensor.nord_pool_ger_current_price
+  nordpool_next: sensor.nord_pool_ger_next_price
+  nordpool_low: sensor.nord_pool_ger_low_price
+  nordpool_high: sensor.nord_pool_ger_high_price
+  nordpool_tomorrow_ready: binary_sensor.nord_pool_ger_tomorrow_ready
+  octopus_price: sensor.octopus_electricity_price
+  # Lebensdauer-kWh der Wallbox; Zählung ab erster Baseline, nicht historisch.
+  tesla_energy: sensor.tesla_wall_connector_energy
+
+nordpool:
+  domain: nordpool
+  area: GER
+  currency: EUR
+  # Offizielle Integration liefert EUR/kWh ohne MwSt und ohne Umlagen/Netzentgelte.
+
+octopus:
+  account_number: "A-XXXXXXXX"
+  meter_number: "1EMH00XXXXXXXX"
+
+# Gesetzliche/staatliche Bestandteile 2026, netto, ohne MwSt.
+# Quellen: ÜNB/Netztransparenz (Umlagen 2026), StromStG (Stromsteuer).
+levies_2026_net_ct_per_kwh:
+  stromsteuer: 2.05          # gesetzlich, unverändert 2026
+  kwkg: 0.446                # KWKG-Umlage 2026
+  stromnev_19: 1.559         # Aufschlag für besondere Netznutzung / §19 StromNEV 2026
+  offshore: 0.941            # Offshore-Netzumlage 2026
+  konzessionsabgabe: 1.59    # Westnetz KA-Sätze 2026: Kamp-Lintfort 1,59 ct netto / 1,892 ct brutto
+  notes: >
+    Konzessionsabgabe Kamp-Lintfort laut Westnetz Preisblatt KA-Sätze ab 01.01.2026:
+    1,59 ct/kWh netto, 1,892 ct/kWh brutto. Nicht aus der Octopus-Heat-All-in-Rechnung ableiten.
+
+vat_rate: 0.19
+
+# Tibber-ähnlicher Lieferantenanteil.
+dynamic_supplier:
+  name: Tibber-ähnlich
+  monthly_fee_eur: 5.99            # Quelle: tibber.com (Gebühr 5,99 €/Monat), Stand 2026
+  # 2,15 ct brutto laut Tibber-Preisseite Kamp-Lintfort (23.08.2026, Tooltip
+  # „Steuern und Abgaben“ = Netz+Umlagen+Aufschlag inkl. MwSt, Aufschlag nicht extra +19 %).
+  markup_gross_ct_per_kwh: 2.15
+  markup_net_ct_per_kwh: 1.80672268907563  # 2,15 / 1,19
+  source: "https://tibber.com/de/strompreise"
+  notes: >
+    Tibber-Integration liefert keinen Preissensor. Formel lokal.
+    Aufschlag 2,15 ct ist der Endkundenwert brutto; MwSt wird darauf nicht
+    ein zweites Mal angewendet.
+
+westnetz_2026:
+  operator: Westnetz GmbH
+  price_as_of: "2026-01-01"
+  source: "Westnetz Preisblatt Strom ab 01.01.2026, Niederspannung ohne RLM"
+  standing_net_eur_per_year: 80.30
+  standing_gross_eur_per_year: 95.56
+  working_net_ct_per_kwh: 9.53
+  working_gross_ct_per_kwh: 11.34
+  modul3:
+    nt:
+      net_ct_per_kwh: 0.95
+      gross_ct_per_kwh: 1.13
+      windows:
+        - {from: "00:00", to: "07:00"}
+    st:
+      net_ct_per_kwh: 9.53
+      gross_ct_per_kwh: 11.34
+      windows:
+        - {from: "07:00", to: "15:00"}
+        - {from: "20:00", to: "24:00"}
+    ht:
+      net_ct_per_kwh: 15.65
+      gross_ct_per_kwh: 18.62
+      windows:
+        - {from: "15:00", to: "20:00"}
+  paragraph_14a_modul1:
+    standing_reduction_net_eur_per_year: -138.70
+    standing_reduction_gross_eur_per_year: -165.05
+    notes: "Pauschale Entgeltreduzierung für Steuerbarkeit + Stabilitätsprämie. Simulation, nicht aktiv."
+
+# Messstellenbetrieb: für alle Vergleichstarife gleich, daher 0 im Delta.
+metering:
+  yearly_eur: 0.0
+  notes: "iMSys-MSB nicht in die Tarifdifferenz einrechnen, solange der Zähler derselbe bleibt."
+
+tariffs:
+  - id: octopus_heat
+    name: Octopus Heat aktuell
+    type: tou_all_in
+    hypothetical: false
+    reference: true
+    scenario_replay: false
+    valid_from: "2025-08-05"
+    valid_to: "2027-08-05"
+    price_as_of: "2026-08-22"
+    source: "Vertrag / Octopus API DEU-ELECTRICITY-OCTO-HEAT-24"
+    notes: >
+      All-in brutto (Netz, Umlagen, Steuer, MwSt enthalten).
+      API-Werte 20,3966 / 28,3934 / 32,3918 ct; vertraglich gerundet wie unten.
+      Keine zusätzlichen Westnetz- oder Umlageposten draufrechnen.
+    standing_eur_per_month: 13.79       # Vertragsanzeige; Rechnung nutzt den exakten Tageswert unten.
+    standing_eur_per_day: 0.45336025    # 165,476491 EUR/Jahr / 365, aus der Rechnung abgeleitet.
+    prices_gross_ct_per_kwh:
+      niedrig: 20.40
+      standard: 28.39
+      hoch: 32.39
+    windows:
+      niedrig:
+        - {from: "02:00", to: "06:00"}
+        - {from: "12:00", to: "16:00"}
+      hoch:
+        - {from: "18:00", to: "21:00"}
+      standard:
+        - {from: "00:00", to: "02:00"}
+        - {from: "06:00", to: "12:00"}
+        - {from: "16:00", to: "18:00"}
+        - {from: "21:00", to: "24:00"}
+
+  - id: octopus_heat_loyalty
+    name: Octopus Heat Loyalty
+    type: tou_all_in
+    hypothetical: true
+    reference: false
+    scenario_replay: true
+    valid_from: "2026-08-01"
+    valid_to: null
+    price_as_of: "2026-08-22"
+    source: "Angebot Preiserhöhung, nicht umgesetzt"
+    notes: "Hypothetisch. Gleiche Zeitfenster wie Octopus Heat. All-in brutto."
+    standing_eur_per_month: 17.38
+    prices_gross_ct_per_kwh:
+      niedrig: 28.89
+      standard: 35.89
+      hoch: 40.89
+    windows:
+      niedrig:
+        - {from: "02:00", to: "06:00"}
+        - {from: "12:00", to: "16:00"}
+      hoch:
+        - {from: "18:00", to: "21:00"}
+      standard:
+        - {from: "00:00", to: "02:00"}
+        - {from: "06:00", to: "12:00"}
+        - {from: "16:00", to: "18:00"}
+        - {from: "21:00", to: "24:00"}
+
+  - id: naturwerke_fix
+    name: Naturwerke Fix
+    type: fix_all_in
+    hypothetical: true
+    reference: false
+    scenario_replay: true
+    valid_from: "2026-08-01"
+    valid_to: null
+    price_as_of: "2026-08-22"
+    source: "Naturwerke-Angebot, vom Nutzer genannt"
+    notes: "All-in brutto. Wert in dieser Datei ändern, wenn das Angebot wechselt."
+    standing_eur_per_month: 15.16
+    price_gross_ct_per_kwh: 31.60
+
+  - id: dynamic
+    name: Dynamisch
+    type: dynamic_retail
+    hypothetical: true
+    reference: false
+    scenario_replay: false
+    valid_from: "2026-01-01"
+    valid_to: "2027-01-01"  # exklusiv; 2027 erst nach neuem Preisblatt berechnen
+    price_as_of: "2026-08-22"
+    source: "Nord Pool GER + Tibber-ähnlicher Aufschlag + Westnetz NS 2026 + Umlagen 2026"
+    notes: >
+      Simulation. Nicht der aktuelle Vertrag.
+      Endkundenpreis = (Spot + Aufschlag + flaches Westnetz-Arbeitsentgelt
+      + Stromsteuer + Umlagen + Konzession) × 1,19.
+      MwSt nur einmal. Westnetz-Arbeitsentgelt nicht zusätzlich zum All-in-Tarif.
+    uses_modul3: false
+    uses_paragraph_14a: false
+
+  - id: dynamic_modul3
+    name: Dynamisch + Modul 3
+    type: dynamic_retail
+    hypothetical: true
+    reference: false
+    scenario_replay: false
+    valid_from: "2026-01-01"
+    valid_to: "2027-01-01"  # exklusiv
+    price_as_of: "2026-08-22"
+    source: "Wie Dynamisch, Westnetz §14a Modul 1+3 2026"
+    notes: >
+      Hypothetisch. Dieser Tarif ist NICHT aktiv.
+      Netzentgelt nach NT/ST/HT statt flachem NS-Arbeitspreis.
+      Jahresgrundpreis Westnetz plus §14a-Pauschale (−165,05 € brutto/Jahr).
+    uses_modul3: true
+    uses_paragraph_14a: true
+
+  - id: dynamic_perfect
+    name: Dynamisch perfekt optimiert
+    type: dynamic_perfect
+    hypothetical: true
+    reference: false
+    scenario_replay: false
+    valid_from: "2026-01-01"
+    valid_to: "2027-01-01"  # exklusiv
+    price_as_of: "2026-08-22"
+    source: "Gleiche Endkundenpreise wie Dynamisch + Modul 3, Lastblöcke mathematisch umsortiert"
+    notes: >
+      Nur für abgeschlossene Tage. Theoretisches Minimum.
+      Reale Viertelstunden-kWh unverändert, nur den günstigsten Preisen zugeordnet.
+      Kein Verschieben der Tagesmenge in ein einziges Slot.
+    uses_modul3: true
+    uses_paragraph_14a: true

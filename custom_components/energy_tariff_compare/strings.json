@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Energie & Tarifvergleich",
+        "description": "Sammelt 15-Minuten-Netzbezug und vergleicht Stromtarife. Steuert keine Geräte."
+      }
+    },
+    "abort": {
+      "already_configured": "Bereits eingerichtet"
+    }
+  }
+}

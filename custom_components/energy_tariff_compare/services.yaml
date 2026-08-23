@@ -1,0 +1,36 @@
+collect_now:
+  name: Jetzt sammeln
+  description: Schreibt das aktuelle 15-Minuten-Intervall in die Projektdatenbank.
+
+shift_month:
+  name: Monat wechseln
+  description: Monat in der Monatsansicht vor oder zurück.
+  fields:
+    delta:
+      name: Delta
+      description: "-1 = vorheriger Monat, 1 = nächster Monat"
+      required: false
+      example: -1
+      selector:
+        number:
+          min: -12
+          max: 12
+          mode: box
+    year:
+      name: Jahr
+      required: false
+      selector:
+        number:
+          min: 2026
+          max: 2030
+    month:
+      name: Monat
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 12
+
+reload_tariffs:
+  name: Tarife neu laden
+  description: Liest tariffs.yaml erneut, ohne Home Assistant neu zu starten.

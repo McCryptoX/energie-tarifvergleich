@@ -1,0 +1,161 @@
+VERALTET — nicht mehr verwenden.
+Ersetzt durch:
+  /config/energy_tariff_compare/prompt-chatgpt-nachpruefung-0.1.5-2026-08-23.txt
+Dieser Prompt gehörte zum Stand VOR 0.1.5 (erster Prüfauftrag). Grok hat die
+Befunde aus chatgpt-pruefbericht-2026-08-23.txt inzwischen umgesetzt.
+
+----- originaler Text darunter nur noch Historie -----
+
+PROMPT FÜR CHATGPT / CODEX — PRÜFUNG ENERGIE & TARIFVERGLEICH
+Stand: 23.08.2026
+Von: Grok, nach Absprache mit Marco
+
+ROLLE
+Du prüfst den LIVE-Stand auf Home Assistant OS (Raspberry Pi 3). Du änderst
+NICHTS an Code, YAML, SQLite, Recorder oder Diensten, solange Marco das nicht
+ausdrücklich verlangt. Ergebnis: ein Prüfbericht als neue TXT-Datei im Ordner
+/config/energy_tariff_compare/ (z. B. chatgpt-pruefbericht-2026-08-23.txt).
+Kein Live-Edit „nebenbei“.
+
+
+ZUERST LESEN (in dieser Reihenfolge)
+1. /config/energy_tariff_compare/grok-index-fuer-codex-2026-08-23.txt
+2. grok-review-codex-und-screenshots-2026-08-23.txt
+3. grok-umsetzung-a2-a4-fuer-codex-2026-08-23.txt
+4. grok-umsetzung-a1-a3-views-fuer-codex-2026-08-23.txt
+5. grok-umsetzung-b1-b2-fuer-codex-2026-08-23.txt
+6. grok-umsetzung-preise-tabs-fuer-codex-2026-08-23.txt
+
+Die Codex-TXT vom 22.08. und 23.08. 11:00 sind Historie bzw. der Stand VOR Groks
+Umsetzung. Nicht als aktuellen Soll-Code behandeln.
+
+LIVE
+- /config/custom_components/energy_tariff_compare/
+- /config/energy_tariff_compare/tariffs.yaml
+- /config/dashboards/energie_tarifvergleich.yaml
+- /config/configuration.yaml (nur recorder + lovelace-Dashboard, keine Secrets zitieren)
+- Tests: /config/energy_tariff_compare/tests/
+- SQLite nur lesen, nicht schreiben, nicht über Samba ersetzen
+- Keine Passwörter, Tokens, Accountnummern im Bericht ausgeben
+
+
+HARTE REGELN (unverändert)
+- Raspberry Pi 3: kein Influx, Grafana, Node-RED, AppDaemon, MariaDB, ApexCharts,
+  card-mod, layout-card
+- Keine Gerätesteuerung (Wallbox, Anker, Vaillant)
+- Abrechnung = Inexogy-Netzbezug, nicht Anker-Watt, nicht Wallbox-kWh
+- Perfect = Umsortierung gemessener 15-Min-Blöcke auf die günstigsten Slots
+  DESSELBEN Tages, nicht der ganze Tag in eine Viertelstunde
+- C2 NICHT vorschlagen/umsetzen: Perfect-„Ist“ darf NICHT cost_dynamic des
+  ganzen Monats/Jahrs sein, sondern Ist auf gleicher vollständiger Tagesbasis
+  (Perfect + Potenzial)
+- B6 NICHT: sensor.tarifvergleich_modul3_ct behalten
+
+
+WAS DU PRÜFEN SOLLST
+
+A) Backend — hat Grok A1/A2/A3/A4/B1/B2 wirklich korrekt und vollständig gemacht?
+
+A2 Fehlender Spot
+- rebuild_day: dynamic / dynamic_modul3 Arbeit UND Gesamt None, wenn
+  price_intervals_missing > 0
+- Heat bleibt numerisch
+- Monat/Jahr erben keine Teilsumme (_sum_if_complete)
+- ranking_complete am PeriodSensor; Pokal ohne Sieger wenn Lücken
+- Test test_incomplete_prices.py lesen und ggf. python3 ausführen
+
+A4 Grün
+- cheapest_working_price_ids: nur finite Zahlen, leere Liste bei Totalausfall
+- Dashboard-Kacheln nutzen cheapest_current_ids, NICHT float(999)
+- Gleichstand (ST: Dynamisch = Modul 3) darf beide grün
+
+A3 Wallbox
+- Early-Return unchanged_source nur wenn Import UND Tesla unverändert
+- Tesla-only bei 0-Netz schreibt tesla_kwh, grid_import_kwh = 0
+- Kein Doppelbuchen im selben Slot
+- Test in test_tesla_and_gaps.py
+
+A1 YAML-Reload
+- apply_tariff_config_change: reprice_day aller Tage, dann Aggregate
+- collect_lock; Startup bei config_sha256-Mismatch
+- kWh unverändert, Kosten ändern sich
+- Test in test_aggregates.py
+
+B1 Morgenpreise
+- Listener nordpool_tomorrow_ready off->on
+- 14:05 bleibt
+- Retries 2/5/10/15 min, max 4, spot_day_complete 92/96/100
+- Named async callbacks (kein lambda + create_task)
+- test_async_callbacks.py
+
+B2 parse_float
+- nan/inf/-inf -> None
+
+B) Tests
+Im Ordner /config/energy_tariff_compare/ alle test_*.py ausführen (python3).
+Welche grün, welche rot, welche nicht aufrufbar. Keine Tests „reparieren“,
+nur berichten, außer Marco will Fixes.
+
+C) Design / Bedienung — Dashboard dreiteilig
+
+Datei: /config/dashboards/energie_tarifvergleich.yaml
+Custom Cards erlaubt: Mushroom, mini-graph-card. Sonst nichts Neues empfehlen.
+
+Reiter (oben im Dashboard, NICHT extra in der Sidebar):
+1. Übersicht  path vergleich
+   Jetzt-Preise, Chips (Spot 3 Dezimalen, Modul-3-Fenster, 15 min),
+   Haus (Anker + Wallbox), 24h Netzbezug, 24h Dynamisch/Modul 3,
+   Heute/Gestern nur Gesamt vs Heat, kompakter Monat/Jahr/Wallbox-Satz.
+2. Preise     path preise
+   Woche mini-graph 168 h, Monat statistics-graph hour 31 Tage,
+   Jahr statistics-graph day 365 Tage.
+   Recorder-States nur 7 Tage — Woche darf nicht so tun, als gäbe es
+   15-Min-Historie über Monate.
+   Modul-3-Kurve darf kürzer sein als Dynamisch (Sensor später gestartet).
+3. Details    path details
+   Volle Arbeit / Grund/Fix / §14a-Gutschrift / Gesamt.
+   Perfect separat als Untergrenze auf gleicher Tagesbasis.
+   Wallbox-Matrix nur wenn kWh seit Baseline > 0, sonst ein Satz.
+
+Design-Prüffragen (konkret, mit Fundstelle in der YAML):
+- Sind die drei Reiter mit Icons so gesetzt, dass sie in HA 2026.8 als Tabs
+  oben erscheinen? path/title/icon/subview?
+- Werden Tarifnamen auf schmaler Breite noch abgeschnitten (grid columns 3)?
+- Verwechselt die UI Arbeitspreis-jetzt (Kacheln grün) mit Gesamt-Pokal (Heat)?
+  Der Hinweistext auf der Übersicht — reicht der, oder ist er zu leicht zu
+  überlesen?
+- 24h-Graphen: smoothing false, animate false, Preise aggregate_func last?
+- Woche 168 h vs Recorder 7 Tage: ehrlich beschriftet?
+- Monat/Jahr-Statistik: sinnvolle period/stat_types (mean)? Zu viele Punkte
+  für den Pi 3 / Browser?
+- Details: Perfect NICHT nochmal in der Gesamt-Spalte?
+- Fusszeile „Arbeit = verbrauchsabhängige Kosten“ statt „Arbeit = kWh“?
+- Heute kein Perfect-Wert, Gestern/Monat/Jahr Perfect nur bei vollständigen Tagen?
+- Wallbox-Nullzustand: keine Sechs-Spalten-Nullmatrix auf der Übersicht?
+- Kein card-mod, kein ApexCharts, keine Animationen
+- Jinja: keine float(999)-Siegerlogik mehr; ranking_complete wird genutzt
+- visibility/Bedingungen: brechen sie auf HA 2026.8.3?
+
+D) Datenqualität (nur LESEN)
+- SQLite daily für 22.08.2026: vollständig? quality repaired vs missing?
+- Heute: intervals_due vs ok vs missing, price_intervals_missing
+- tesla_count_started_utc gesetzt, tesla_kwh seit Baseline plausibel?
+- Keine Secrets ausgeben
+
+E) Offene Restpunkte — nur bewerten, nicht bauen
+B3 Event-Dedup, B4 Gap-Scan 7 Tage, B5 Attribut-Menge, C5 lovelace.mode.
+Priorisieren: muss / kann warten / nicht tun.
+
+
+BERICHTSFORM
+Neue TXT, deutsch, ohne Secrets. Gliederung:
+1. Kurzurteil (funktioniert / Risiken)
+2. Backend A1–A4 B1 B2: ok / Lücke / Regression, mit Datei+Zeile
+3. Tests: Liste Pass/Fail
+4. Design der drei Reiter: was gut ist, was auf Desktop/Mobil hakt,
+   konkrete YAML-Vorschläge ohne sie schon anzuwenden
+5. Was ChatGPT ausdrücklich NICHT ändern würde (C2, B6, Add-ons)
+6. Empfohlene nächste Schritte für Marco, max. 5 Punkte, priorisiert
+
+Wenn du unsicher bist, sag unsicher. Keine neuen Features erfinden
+(kein Lastmanagement, keine Steuerung, keine Influx-Anbindung).
