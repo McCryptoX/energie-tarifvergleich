@@ -11,7 +11,14 @@ import types
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-ROOT = Path("/config") if Path("/config/energy_tariff_compare/tariffs.yaml").exists() else Path("/Volumes/config")
+def find_root() -> Path:
+    for candidate in (Path("/config"), Path("/Volumes/config"), Path(__file__).resolve().parents[2]):
+        if (candidate / "custom_components" / "energy_tariff_compare" / "tariffs.py").exists():
+            return candidate
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = find_root()
 PKG = ROOT / "custom_components" / "energy_tariff_compare"
 
 
@@ -74,7 +81,12 @@ def main():
     Store = mods["store"].Store
     T = mods["tariffs"]
     C = mods["collector"]
-    cfg = T.load_config(ROOT / "energy_tariff_compare" / "tariffs.yaml")
+    tariff_file = (
+        ROOT / "energy_tariff_compare" / "tariffs.yaml"
+        if (ROOT / "energy_tariff_compare" / "tariffs.yaml").exists()
+        else ROOT / "energy_tariff_compare" / "tariffs.example.yaml"
+    )
+    cfg = T.load_config(tariff_file)
     with tempfile.TemporaryDirectory() as tmp:
         store = Store(Path(tmp) / "energy.sqlite")
         full_day = date(2026, 8, 20)

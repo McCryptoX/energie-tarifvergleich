@@ -34,7 +34,14 @@ SPOT_TIMEZONES = {
     "CEST": timezone(timedelta(hours=2), "CEST"),
 }
 
-ROOT = Path("/config") if Path("/config/energy_tariff_compare").exists() else Path("/Volumes/config")
+def find_root() -> Path:
+    for candidate in (Path("/config"), Path("/Volumes/config"), Path(__file__).resolve().parents[2]):
+        if (candidate / "custom_components" / "energy_tariff_compare").exists():
+            return candidate
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = find_root()
 PKG = ROOT / "custom_components" / "energy_tariff_compare"
 CSV_CANDIDATES = [
     ROOT / "energy_tariff_compare" / "imports",

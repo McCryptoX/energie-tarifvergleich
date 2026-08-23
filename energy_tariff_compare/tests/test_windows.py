@@ -9,7 +9,14 @@ from pathlib import Path
 
 import importlib.util
 
-ROOT = Path("/config") if Path("/config/energy_tariff_compare/tariffs.yaml").exists() else Path("/Volumes/config")
+def find_root() -> Path:
+    for candidate in (Path("/config"), Path("/Volumes/config"), Path(__file__).resolve().parents[2]):
+        if (candidate / "custom_components" / "energy_tariff_compare" / "tariffs.py").exists():
+            return candidate
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = find_root()
 _spec = importlib.util.spec_from_file_location(
     "etc_tariffs", ROOT / "custom_components/energy_tariff_compare/tariffs.py"
 )
@@ -32,7 +39,12 @@ standing_eur_for_month = Tmod.standing_eur_for_month
 tariff_by_id = Tmod.tariff_by_id
 validate_config = Tmod.validate_config
 
-CFG = load_config(ROOT / "energy_tariff_compare" / "tariffs.yaml")
+_tariff_file = (
+    ROOT / "energy_tariff_compare" / "tariffs.yaml"
+    if (ROOT / "energy_tariff_compare" / "tariffs.yaml").exists()
+    else ROOT / "energy_tariff_compare" / "tariffs.example.yaml"
+)
+CFG = load_config(_tariff_file)
 
 
 def dt(h, m=0, day=22, month=8, year=2026):

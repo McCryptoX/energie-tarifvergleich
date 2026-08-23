@@ -10,7 +10,14 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path("/config") if Path("/config/energy_tariff_compare").exists() else Path("/Volumes/config")
+def find_root() -> Path:
+    for candidate in (Path("/config"), Path("/Volumes/config"), Path(__file__).resolve().parents[2]):
+        if (candidate / "energy_tariff_compare" / "scripts" / "import_inexogy.py").exists():
+            return candidate
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = find_root()
 SCRIPT = ROOT / "energy_tariff_compare" / "scripts" / "import_inexogy.py"
 SPEC = importlib.util.spec_from_file_location("test_import_inexogy_module", SCRIPT)
 if SPEC is None or SPEC.loader is None:

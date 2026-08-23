@@ -11,7 +11,14 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-ROOT = Path("/config") if Path("/config/energy_tariff_compare/tariffs.yaml").exists() else Path("/Volumes/config")
+def find_root() -> Path:
+    for candidate in (Path("/config"), Path("/Volumes/config"), Path(__file__).resolve().parents[2]):
+        if (candidate / "custom_components" / "energy_tariff_compare" / "tariffs.py").exists():
+            return candidate
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = find_root()
 PKG = ROOT / "custom_components" / "energy_tariff_compare"
 TZ = ZoneInfo("Europe/Berlin")
 IMP = "sensor.electricity_smartmeter_gesamtbezug"
@@ -61,7 +68,12 @@ def main():
     Store = mods["store"].Store
     T = mods["tariffs"]
     coll = mods["collector"]
-    cfg = T.load_config(ROOT / "energy_tariff_compare" / "tariffs.yaml")
+    tariff_file = (
+        ROOT / "energy_tariff_compare" / "tariffs.yaml"
+        if (ROOT / "energy_tariff_compare" / "tariffs.yaml").exists()
+        else ROOT / "energy_tariff_compare" / "tariffs.example.yaml"
+    )
+    cfg = T.load_config(tariff_file)
     IMP = cfg["entities"]["grid_import"]
     EXP = cfg["entities"].get("grid_export", "sensor.grid_export")
     TESLA = cfg["entities"].get("tesla_energy", "sensor.tesla_wall_connector_energy")

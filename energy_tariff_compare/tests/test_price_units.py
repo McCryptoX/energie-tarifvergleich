@@ -9,7 +9,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-ROOT = Path("/config") if Path("/config/energy_tariff_compare/tariffs.yaml").exists() else Path("/Volumes/config")
+def find_root() -> Path:
+    for candidate in (Path("/config"), Path("/Volumes/config"), Path(__file__).resolve().parents[2]):
+        if (candidate / "custom_components" / "energy_tariff_compare" / "tariffs.py").exists():
+            return candidate
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = find_root()
 TZ = ZoneInfo("Europe/Berlin")
 _spec = importlib.util.spec_from_file_location(
     "etc_tariffs", ROOT / "custom_components/energy_tariff_compare/tariffs.py"
