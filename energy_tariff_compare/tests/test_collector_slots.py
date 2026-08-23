@@ -14,8 +14,8 @@ from zoneinfo import ZoneInfo
 ROOT = Path("/config") if Path("/config/energy_tariff_compare/tariffs.yaml").exists() else Path("/Volumes/config")
 PKG = ROOT / "custom_components" / "energy_tariff_compare"
 TZ = ZoneInfo("Europe/Berlin")
-IMP = "sensor.electricity_bogenstr_5_gesamtbezug"
-EXP = "sensor.electricity_bogenstr_5_gesamteinspeisung"
+IMP = "sensor.electricity_smartmeter_gesamtbezug"
+EXP = "sensor.electricity_smartmeter_gesamteinspeisung"
 
 
 def load_pkg():
@@ -56,11 +56,14 @@ def readings(kwh, when, exp=0.0):
 
 
 def main():
+    global IMP, EXP
     mods = load_pkg()
     Store = mods["store"].Store
     T = mods["tariffs"]
     coll = mods["collector"]
     cfg = T.load_config(ROOT / "energy_tariff_compare" / "tariffs.yaml")
+    IMP = cfg["entities"]["grid_import"]
+    EXP = cfg["entities"].get("grid_export", "sensor.grid_export")
 
     tmp = tempfile.TemporaryDirectory()
     store = Store(Path(tmp.name) / "energy.sqlite")

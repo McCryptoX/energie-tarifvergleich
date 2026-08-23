@@ -1,14 +1,14 @@
 collect_now:
-  name: Jetzt sammeln
-  description: Schreibt das aktuelle 15-Minuten-Intervall in die Projektdatenbank.
+  name: Jetzt erfassen
+  description: Erfasst und berechnet den letzten abgeschlossenen 15-Minuten-Slot sofort und speichert ihn in der SQLite-Projektdatenbank.
 
 shift_month:
-  name: Monat wechseln
-  description: Monat in der Monatsansicht vor oder zurück.
+  name: Monatsansicht wechseln
+  description: Wechselt den angezeigten Monat für die Monats-Auswertung und Sensoren (vor, zurück oder direktes Datum).
   fields:
     delta:
-      name: Delta
-      description: "-1 = vorheriger Monat, 1 = nächster Monat"
+      name: Monats-Verschiebung (Delta)
+      description: "Relativer Monatssprung (-1 = vorheriger Monat, +1 = nächster Monat)."
       required: false
       example: -1
       selector:
@@ -17,15 +17,19 @@ shift_month:
           max: 12
           mode: box
     year:
-      name: Jahr
+      name: Ziel-Jahr
+      description: "Konkretes 4-stelliges Kalenderjahr (z. B. 2026)."
       required: false
+      example: 2026
       selector:
         number:
           min: 2026
-          max: 2030
+          max: 2035
     month:
-      name: Monat
+      name: Ziel-Monat
+      description: "Konkreter Monatsindex (1 = Januar bis 12 = Dezember)."
       required: false
+      example: 8
       selector:
         number:
           min: 1
@@ -33,4 +37,5 @@ shift_month:
 
 reload_tariffs:
   name: Tarife neu laden
-  description: Liest tariffs.yaml erneut, ohne Home Assistant neu zu starten.
+  description: Lädt Preisstufen, Zeitfenster und Umlagen aus der tariffs.yaml neu ein und berechnet betroffene Intervalle neu (ohne Core-Neustart).
+

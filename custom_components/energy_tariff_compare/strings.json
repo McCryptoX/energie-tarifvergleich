@@ -3,11 +3,12 @@
     "step": {
       "user": {
         "title": "Energie & Tarifvergleich",
-        "description": "Sammelt 15-Minuten-Netzbezug und vergleicht Stromtarife. Steuert keine Geräte."
+        "description": "Erfasst den 15-Minuten-Netzbezug und vergleicht Stromtarife parallel in Echtzeit. Reines Lese- und Analysesystem ohne Gerätesteuerung."
       }
     },
     "abort": {
-      "already_configured": "Bereits eingerichtet"
+      "already_configured": "Die Integration ist bereits eingerichtet."
     }
   }
 }
+

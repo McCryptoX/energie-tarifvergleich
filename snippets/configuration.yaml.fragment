@@ -18,7 +18,7 @@ recorder:
       - sensor.tarifvergleich_monat
       - sensor.tarifvergleich_jahr
       - sensor.tarifvergleich_wallbox
-      - sensor.electricity_bogenstr_5_gesamtleistung
+      - sensor.electricity_smartmeter_gesamtleistung
       - sensor.tesla_wall_connector_gesamtleistung
       - sensor.tesla_wall_connector_netzspannung
       - sensor.tesla_wall_connector_netzfrequenz
