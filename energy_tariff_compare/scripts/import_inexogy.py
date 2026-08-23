@@ -38,7 +38,6 @@ ROOT = Path("/config") if Path("/config/energy_tariff_compare").exists() else Pa
 PKG = ROOT / "custom_components" / "energy_tariff_compare"
 CSV_CANDIDATES = [
     ROOT / "energy_tariff_compare" / "imports",
-    Path("/Users/marco/Documents/HomeAssistant"),
 ]
 
 
@@ -98,7 +97,7 @@ def find_csv(
 ) -> Path:
     path = _select_csv(
         label="Inexogy-CSV",
-        predicate=lambda item: "1EMH0013403233" in item.name
+        predicate=lambda item: "1emh" in item.name.lower()
         or "inexogy" in item.name.lower(),
         explicit=explicit,
         candidates=candidates,
