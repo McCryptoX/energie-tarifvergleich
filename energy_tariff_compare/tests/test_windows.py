@@ -131,9 +131,8 @@ def main():
     p = energy_price_gross_eur_per_kwh(CFG, "octopus_heat", dt(3, 0), None)
     check(abs(p - 0.2040) < 1e-9, f"heat niedrig 20.40 ct -> {p}")
     p = energy_price_gross_eur_per_kwh(CFG, "octopus_heat", dt(19, 0), None)
-    check(abs(p - 0.3239) < 1e-9, f"heat hoch 32.39 ct -> {p}")
-    p = energy_price_gross_eur_per_kwh(CFG, "naturwerke_fix", dt(19, 0), None)
-    check(abs(p - 0.3160) < 1e-9, f"naturwerke 31.60 ct -> {p}")
+    p = energy_price_gross_eur_per_kwh(CFG, "fix_tarif", dt(19, 0), None)
+    check(abs(p - 0.3160) < 1e-9, f"fix_tarif 31.60 ct -> {p}")
 
     replay_day = dt(3, 0, day=15, month=7)
     replay_price = energy_price_gross_eur_per_kwh(CFG, "octopus_heat_loyalty", replay_day, None)

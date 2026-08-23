@@ -47,7 +47,7 @@ def interval_rows(T, cfg, day_value: date, count: int) -> list[dict]:
         spot = 0.05 + (index % 8) * 0.001
         kwh = 0.1 + (index % 4) * 0.01
         costs = {}
-        for tariff_id in ("octopus_heat", "octopus_heat_loyalty", "naturwerke_fix", "dynamic", "dynamic_modul3"):
+        for tariff_id in ("octopus_heat", "octopus_heat_loyalty", "fix_tarif", "dynamic", "dynamic_modul3"):
             price = T.energy_price_gross_eur_per_kwh(cfg, tariff_id, local, spot)
             costs[tariff_id] = None if price is None else round(kwh * price, 6)
         rows.append(

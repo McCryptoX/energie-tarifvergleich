@@ -15,7 +15,7 @@ from . import tariffs as T
 COST_KEYS = (
     "octopus_heat",
     "octopus_heat_loyalty",
-    "naturwerke_fix",
+    "fix_tarif",
     "dynamic",
     "dynamic_modul3",
 )
@@ -153,7 +153,7 @@ def collect_tick(
             "nordpool_eur_kwh": spot,
             "cost_octopus_heat": costs.get("octopus_heat"),
             "cost_octopus_heat_loyalty": costs.get("octopus_heat_loyalty"),
-            "cost_naturwerke_fix": costs.get("naturwerke_fix"),
+            "cost_fix_tarif": costs.get("fix_tarif"),
             "cost_dynamic": costs.get("dynamic"),
             "cost_dynamic_modul3": costs.get("dynamic_modul3"),
             "quality": quality,
@@ -1028,7 +1028,7 @@ def repair_gaps_from_counter_series(
                     "nordpool_eur_kwh": spot,
                     "cost_octopus_heat": costs["octopus_heat"],
                     "cost_octopus_heat_loyalty": costs["octopus_heat_loyalty"],
-                    "cost_naturwerke_fix": costs["naturwerke_fix"],
+                    "cost_fix_tarif": costs["fix_tarif"],
                     "cost_dynamic": costs["dynamic"],
                     "cost_dynamic_modul3": costs["dynamic_modul3"],
                     "quality": "repaired",

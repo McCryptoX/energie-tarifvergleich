@@ -152,7 +152,7 @@ tariffs:
         - {from: "16:00", to: "18:00"}
         - {from: "21:00", to: "24:00"}
 
-  - id: naturwerke_fix
+  - id: fix_tarif
     name: Fixer Tarif
     type: fix_all_in
     hypothetical: true

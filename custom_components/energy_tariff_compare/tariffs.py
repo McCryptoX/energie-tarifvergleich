@@ -15,7 +15,7 @@ REQUIRED_TARIFF_IDS = frozenset(
     {
         "octopus_heat",
         "octopus_heat_loyalty",
-        "naturwerke_fix",
+        "fix_tarif",
         "dynamic",
         "dynamic_modul3",
         "dynamic_perfect",

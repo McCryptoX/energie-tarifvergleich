@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS intervals (
   nordpool_eur_kwh REAL,
   cost_octopus_heat REAL,
   cost_octopus_heat_loyalty REAL,
-  cost_naturwerke_fix REAL,
+  cost_fix_tarif REAL,
   cost_dynamic REAL,
   cost_dynamic_modul3 REAL,
   quality TEXT NOT NULL,
@@ -52,17 +52,17 @@ CREATE TABLE IF NOT EXISTS daily (
   data_through TEXT,
   energy_cost_octopus_heat REAL,
   energy_cost_octopus_heat_loyalty REAL,
-  energy_cost_naturwerke_fix REAL,
+  energy_cost_fix_tarif REAL,
   energy_cost_dynamic REAL,
   energy_cost_dynamic_modul3 REAL,
   standing_cost_octopus_heat REAL,
   standing_cost_octopus_heat_loyalty REAL,
-  standing_cost_naturwerke_fix REAL,
+  standing_cost_fix_tarif REAL,
   standing_cost_dynamic REAL,
   standing_cost_dynamic_modul3 REAL,
   cost_octopus_heat REAL,
   cost_octopus_heat_loyalty REAL,
-  cost_naturwerke_fix REAL,
+  cost_fix_tarif REAL,
   cost_dynamic REAL,
   cost_dynamic_modul3 REAL,
   cost_dynamic_perfect REAL,
@@ -88,17 +88,17 @@ CREATE TABLE IF NOT EXISTS monthly (
   data_through TEXT,
   energy_cost_octopus_heat REAL,
   energy_cost_octopus_heat_loyalty REAL,
-  energy_cost_naturwerke_fix REAL,
+  energy_cost_fix_tarif REAL,
   energy_cost_dynamic REAL,
   energy_cost_dynamic_modul3 REAL,
   standing_cost_octopus_heat REAL,
   standing_cost_octopus_heat_loyalty REAL,
-  standing_cost_naturwerke_fix REAL,
+  standing_cost_fix_tarif REAL,
   standing_cost_dynamic REAL,
   standing_cost_dynamic_modul3 REAL,
   cost_octopus_heat REAL,
   cost_octopus_heat_loyalty REAL,
-  cost_naturwerke_fix REAL,
+  cost_fix_tarif REAL,
   cost_dynamic REAL,
   cost_dynamic_modul3 REAL,
   cost_dynamic_perfect REAL,
@@ -122,17 +122,17 @@ CREATE TABLE IF NOT EXISTS yearly (
   data_through TEXT,
   energy_cost_octopus_heat REAL,
   energy_cost_octopus_heat_loyalty REAL,
-  energy_cost_naturwerke_fix REAL,
+  energy_cost_fix_tarif REAL,
   energy_cost_dynamic REAL,
   energy_cost_dynamic_modul3 REAL,
   standing_cost_octopus_heat REAL,
   standing_cost_octopus_heat_loyalty REAL,
-  standing_cost_naturwerke_fix REAL,
+  standing_cost_fix_tarif REAL,
   standing_cost_dynamic REAL,
   standing_cost_dynamic_modul3 REAL,
   cost_octopus_heat REAL,
   cost_octopus_heat_loyalty REAL,
-  cost_naturwerke_fix REAL,
+  cost_fix_tarif REAL,
   cost_dynamic REAL,
   cost_dynamic_modul3 REAL,
   cost_dynamic_perfect REAL,
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS meta (
 COST_COLS = (
     "octopus_heat",
     "octopus_heat_loyalty",
-    "naturwerke_fix",
+    "fix_tarif",
     "dynamic",
     "dynamic_modul3",
 )
@@ -169,7 +169,7 @@ INTERVAL_COLS = (
     "nordpool_eur_kwh",
     "cost_octopus_heat",
     "cost_octopus_heat_loyalty",
-    "cost_naturwerke_fix",
+    "cost_fix_tarif",
     "cost_dynamic",
     "cost_dynamic_modul3",
     "quality",
@@ -256,17 +256,33 @@ class Store:
 
     def _migrate(self, conn: sqlite3.Connection) -> None:
         interval_cols = {row[1] for row in conn.execute("PRAGMA table_info(intervals)")}
+        if "cost_naturwerke_fix" in interval_cols and "cost_fix_tarif" not in interval_cols:
+            conn.execute("ALTER TABLE intervals RENAME COLUMN cost_naturwerke_fix TO cost_fix_tarif")
+        elif "cost_fix_tarif" not in interval_cols:
+            conn.execute("ALTER TABLE intervals ADD COLUMN cost_fix_tarif REAL")
+
         if "tesla_kwh" not in interval_cols:
             conn.execute("ALTER TABLE intervals ADD COLUMN tesla_kwh REAL")
+
         for table in ("daily", "monthly", "yearly"):
             cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for prefix in ("cost_", "energy_cost_", "standing_cost_", "tesla_cost_"):
+                old_col = f"{prefix}naturwerke_fix"
+                new_col = f"{prefix}fix_tarif"
+                if old_col in cols and new_col not in cols:
+                    conn.execute(f"ALTER TABLE {table} RENAME COLUMN {old_col} TO {new_col}")
+                    cols.add(new_col)
+
             if "cost_dynamic_flat_perfect" not in cols:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN cost_dynamic_flat_perfect REAL")
+                cols.add("cost_dynamic_flat_perfect")
             if "potential_dynamic_eur" not in cols:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN potential_dynamic_eur REAL")
+                cols.add("potential_dynamic_eur")
             for column, sql_type in AGGREGATE_EXTRA_COLUMNS[table].items():
                 if column not in cols:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}")
+                    cols.add(column)
 
     def close(self) -> None:
         return

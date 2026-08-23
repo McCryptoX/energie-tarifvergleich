@@ -42,17 +42,14 @@ views:
               - type: custom:mushroom-template-card
                 entity: sensor.tarifvergleich_preis_fix
                 primary: Fixer Tarif
-                secondary: >
-                  {% set p = states('sensor.tarifvergleich_preis_fix') %}
-                  {% set p = p if is_number(p) else states('sensor.tarifvergleich_preis_naturwerke') %}
-                  {% if is_number(p) %}{{ '%.2f'|format(p|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}
+                secondary: "{% if is_number(states('sensor.tarifvergleich_preis_fix')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_fix')|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}"
                 icon: mdi:lock-outline
                 layout: vertical
                 tap_action:
                   action: more-info
                 icon_color: >
                   {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
-                  {{ 'green' if ids and 'naturwerke_fix' in ids else 'grey' }}
+                  {{ 'green' if ids and 'fix_tarif' in ids else 'grey' }}
               - type: custom:mushroom-template-card
                 entity: sensor.tarifvergleich_preis_dynamisch
                 primary: Dynamisch
@@ -269,7 +266,7 @@ views:
                   {% for n,c in [
                     ('Heat', state_attr(e, 'cost_octopus_heat')),
                     ('Loyalty', state_attr(e, 'cost_octopus_heat_loyalty')),
-                    ('Fixer Tarif', state_attr(e, 'cost_naturwerke_fix')),
+                    ('Fixer Tarif', state_attr(e, 'cost_fix_tarif')),
                     ('Dynamisch', state_attr(e, 'cost_dynamic')),
                     ('Modul 3', state_attr(e, 'cost_dynamic_modul3'))
                   ] %}
@@ -300,7 +297,7 @@ views:
               |:--|--:|--:|
               | **Heat** | {{ n(state_attr(e, 'cost_octopus_heat')) }} € | Referenz |
               | **Loyalty** | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'delta_vs_heat_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'cost_naturwerke_fix')) }} € | {{ n(state_attr(e, 'delta_vs_heat_naturwerke_fix')) }} € |
+              | **Fixer Tarif** | {{ n(state_attr(e, 'cost_fix_tarif')) }} € | {{ n(state_attr(e, 'delta_vs_heat_fix_tarif')) }} € |
               | **Dynamisch** | {{ n(state_attr(e, 'cost_dynamic')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic')) }} € |
               | **+ Modul 3** | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic_modul3')) }} € |
 
@@ -331,7 +328,7 @@ views:
                   {% for n,c in [
                     ('Heat', state_attr(e, 'cost_octopus_heat')),
                     ('Loyalty', state_attr(e, 'cost_octopus_heat_loyalty')),
-                    ('Fixer Tarif', state_attr(e, 'cost_naturwerke_fix')),
+                    ('Fixer Tarif', state_attr(e, 'cost_fix_tarif')),
                     ('Dynamisch', state_attr(e, 'cost_dynamic')),
                     ('Modul 3', state_attr(e, 'cost_dynamic_modul3'))
                   ] %}
@@ -361,7 +358,7 @@ views:
               |:--|--:|--:|
               | **Heat** | {{ n(state_attr(e, 'cost_octopus_heat')) }} € | Referenz |
               | **Loyalty** | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'delta_vs_heat_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'cost_naturwerke_fix')) }} € | {{ n(state_attr(e, 'delta_vs_heat_naturwerke_fix')) }} € |
+              | **Fixer Tarif** | {{ n(state_attr(e, 'cost_fix_tarif')) }} € | {{ n(state_attr(e, 'delta_vs_heat_fix_tarif')) }} € |
               | **Dynamisch** | {{ n(state_attr(e, 'cost_dynamic')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic')) }} € |
               | **+ Modul 3** | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic_modul3')) }} € |
 
@@ -534,7 +531,7 @@ views:
               |:--|--:|--:|--:|
               | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
               | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_naturwerke_fix')) }} € · {{ wp(state_attr(e, 'energy_cost_naturwerke_fix'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_naturwerke_fix')) }} € | {{ n(state_attr(e, 'cost_naturwerke_fix')) }} € |
+              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
               | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
               | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
 
@@ -577,7 +574,7 @@ views:
               |:--|--:|--:|--:|
               | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
               | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_naturwerke_fix')) }} € · {{ wp(state_attr(e, 'energy_cost_naturwerke_fix'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_naturwerke_fix')) }} € | {{ n(state_attr(e, 'cost_naturwerke_fix')) }} € |
+              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
               | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
               | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
 
@@ -668,7 +665,7 @@ views:
               |:--|--:|--:|--:|
               | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
               | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_naturwerke_fix')) }} € · {{ wp(state_attr(e, 'energy_cost_naturwerke_fix'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_naturwerke_fix')) }} € | {{ n(state_attr(e, 'cost_naturwerke_fix')) }} € |
+              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
               | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
               | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
 
@@ -729,7 +726,7 @@ views:
               |:--|--:|--:|--:|
               | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
               | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_naturwerke_fix')) }} € · {{ wp(state_attr(e, 'energy_cost_naturwerke_fix'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_naturwerke_fix')) }} € | {{ n(state_attr(e, 'cost_naturwerke_fix')) }} € |
+              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
               | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
               | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
 
@@ -798,7 +795,7 @@ views:
               |:--|--:|--:|--:|--:|--:|
               | **Heat** | {{ n(state_attr(e, 'tesla_cost_octopus_heat_today')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_week')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_month')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_year')) }} € |
               | **Loyalty** | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_today')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_week')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_month')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_year')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'tesla_cost_naturwerke_fix_today')) }} € | {{ n(state_attr(e, 'tesla_cost_naturwerke_fix_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_naturwerke_fix_week')) }} € | {{ n(state_attr(e, 'tesla_cost_naturwerke_fix_month')) }} € | {{ n(state_attr(e, 'tesla_cost_naturwerke_fix_year')) }} € |
+              | **Fixer Tarif** | {{ n(state_attr(e, 'tesla_cost_fix_tarif_today')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_week')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_month')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_year')) }} € |
               | **Dynamisch** | {{ n(state_attr(e, 'tesla_cost_dynamic_today')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_week')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_month')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_year')) }} € |
               | **+ Modul 3** | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_today')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_week')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_month')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_year')) }} € |
               {% endif %}

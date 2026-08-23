@@ -702,7 +702,7 @@ def _run_import_locked(args: argparse.Namespace) -> None:
                     "nordpool_eur_kwh": spot,
                     "cost_octopus_heat": costs["octopus_heat"],
                     "cost_octopus_heat_loyalty": costs["octopus_heat_loyalty"],
-                    "cost_naturwerke_fix": costs["naturwerke_fix"],
+                    "cost_fix_tarif": costs["fix_tarif"],
                     "cost_dynamic": costs["dynamic"],
                     "cost_dynamic_modul3": costs["dynamic_modul3"],
                     "quality": quality,

@@ -7,7 +7,7 @@ TZ_NAME = "Europe/Berlin"
 TARIFF_IDS = (
     "octopus_heat",
     "octopus_heat_loyalty",
-    "naturwerke_fix",
+    "fix_tarif",
     "dynamic",
     "dynamic_modul3",
 )

@@ -113,7 +113,7 @@ def main():
         "nordpool_eur_kwh": 0.08,
         "cost_octopus_heat": 1.0,
         "cost_octopus_heat_loyalty": 1.0,
-        "cost_naturwerke_fix": 1.0,
+        "cost_fix_tarif": 1.0,
         "cost_dynamic": 1.0,
         "cost_dynamic_modul3": 1.0,
         "quality": "backfilled",
