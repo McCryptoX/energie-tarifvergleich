@@ -14,7 +14,7 @@ Das System erfasst alle 15 Minuten (Minute 00, 15, 30, 45 + 20 s Versatz) den ab
 |---|---|---|
 | `octopus_heat` | **Octopus Heat (Referenz)** | Echter Time-of-Use-Vertrag (NT / ST / HT), All-in brutto inkl. aller Umlagen, Steuern und Grundpreis. |
 | `octopus_heat_loyalty` | **Octopus Heat Loyalty** | Hypothetisches Folgeangebot mit angepassten Arbeitspreisen. |
-| `naturwerke_fix` | **Fixer Tarif** | Hypothetischer klassischer Festpreistarif (fester Arbeitspreis + Grundpreis). |
+| `fix_tarif` | **Fixer Tarif** | Hypothetischer klassischer Festpreistarif (fester Arbeitspreis + Grundpreis). |
 | `dynamic` | **Dynamischer Tarif** | Börsenpreis (Nord Pool Spot GER) + Lieferantenaufschlag + Standard-Netzentgelt (flach) + gesetzliche Umlagen/Steuern 2026 + MwSt. |
 | `dynamic_modul3` | **Dynamisch + §14a Modul 3** | Wie dynamisch, jedoch mit **zeitvariablen Netzentgelten der Westnetz** (NT / ST / HT) sowie pauschaler Grundpreisreduzierung nach **§14a EnWG (Modul 1)**. |
 | `dynamic_perfect` | **Perfekt optimiert** | Nachträglich berechnetes, theoretisches Optimum für abgeschlossene Tage: Die gemessenen 15-Minuten-kWh-Blöcke werden auf die günstigsten Börsenpreis-Slots *desselben Tages* umsortiert. |

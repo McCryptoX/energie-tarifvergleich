@@ -66,7 +66,7 @@ Verglichene Tarife:
 |---|---|
 | `octopus_heat` | Live-Vertrag, all-in brutto, Referenz |
 | `octopus_heat_loyalty` | hypothetisch |
-| `naturwerke_fix` | hypothetisch |
+| `naturwerke_fix` | hypothetisch, fixer Tarif / Festpreis |
 | `dynamic` | hypothetisch Tibber-ähnlich |
 | `dynamic_modul3` | dasselbe + Westnetz Modul 3 NT/ST/HT + §14a |
 | Perfect | nachträglich, nur vollständige Tage |
