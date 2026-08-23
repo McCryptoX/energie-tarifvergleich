@@ -11,3 +11,5 @@ energy_tariff_compare/tariffs.yaml
 .idea/
 .vscode/
 *.log
+*.txt
+
