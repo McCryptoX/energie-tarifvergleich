@@ -15,7 +15,7 @@ from .const import DOMAIN, PLAT_NAME, REFERENCE_ID
 TARIFF_LABELS = {
     "octopus_heat": "Octopus Heat aktuell",
     "octopus_heat_loyalty": "Octopus Heat Loyalty",
-    "naturwerke_fix": "Naturwerke Fix",
+    "naturwerke_fix": "Fixer Tarif",
     "dynamic": "Dynamisch",
     "dynamic_modul3": "Dynamisch + Modul 3",
     "dynamic_perfect": "Dynamisch perfekt (theoretisch)",
@@ -28,7 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             PricesSensor(hass),
             PriceNowSensor(hass, "octopus_heat", "tarifvergleich_preis_heat", "Octopus Heat"),
             PriceNowSensor(hass, "octopus_heat_loyalty", "tarifvergleich_preis_loyalty", "Heat Loyalty"),
-            PriceNowSensor(hass, "naturwerke_fix", "tarifvergleich_preis_naturwerke", "Naturwerke"),
+            PriceNowSensor(hass, "naturwerke_fix", "tarifvergleich_preis_naturwerke", "Fixer Tarif"),
             PriceNowSensor(hass, "dynamic", "tarifvergleich_preis_dynamisch", "Dynamisch"),
             PriceNowSensor(hass, "dynamic_modul3", "tarifvergleich_preis_modul3", "Dynamisch + Modul 3"),
             PeriodSensor(hass, "today", "Heute", "tarifvergleich_heute"),

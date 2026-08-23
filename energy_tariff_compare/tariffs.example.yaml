@@ -153,7 +153,7 @@ tariffs:
         - {from: "21:00", to: "24:00"}
 
   - id: naturwerke_fix
-    name: Naturwerke Fix
+    name: Fixer Tarif
     type: fix_all_in
     hypothetical: true
     reference: false
@@ -161,7 +161,7 @@ tariffs:
     valid_from: "2026-08-01"
     valid_to: null
     price_as_of: "2026-08-22"
-    source: "Naturwerke-Angebot, vom Nutzer genannt"
+    source: "Klassischer Festpreistarif (Simulation)"
     notes: "All-in brutto. Wert in dieser Datei ändern, wenn das Angebot wechselt."
     standing_eur_per_month: 15.16
     price_gross_ct_per_kwh: 31.60
