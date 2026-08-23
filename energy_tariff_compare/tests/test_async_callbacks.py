@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 from pathlib import Path
 
 
@@ -79,5 +80,38 @@ check(
     "SensorStateClass.MEASUREMENT" in interval_class,
     "interval kWh uses measurement without the Energy device class",
 )
+
+CONST_PATH = INIT_PATH.with_name("const.py")
+_const_spec = importlib.util.spec_from_file_location("etc_const_uid", CONST_PATH)
+const = importlib.util.module_from_spec(_const_spec)
+_const_spec.loader.exec_module(const)
+check(
+    const.PRICE_UNIQUE_ID_MIGRATIONS.get("etc_price_naturwerke_fix") == "etc_price_fix_tarif",
+    "naturwerke unique_id maps to fix_tarif",
+)
+check(
+    const.PRICE_ENTITY_IDS.get("etc_price_fix_tarif") == "sensor.tarifvergleich_preis_fix",
+    "fix_tarif keeps entity_id sensor.tarifvergleich_preis_fix",
+)
+check(const.leftover_unique_id_action(None, "sensor.x") == "skip", "no leftover unique_id: skip")
+check(
+    const.leftover_unique_id_action("sensor.old", None) == "retarget",
+    "only old unique_id: retarget",
+)
+check(
+    const.leftover_unique_id_action("sensor.a", "sensor.b") == "remove_old",
+    "both unique_ids exist: remove leftover",
+)
+check(
+    const.leftover_unique_id_action("sensor.same", "sensor.same") == "skip",
+    "already the same registry row: skip",
+)
+mig_at = sensor_source.find("migrate_renamed_price_unique_ids(hass)")
+add_at = sensor_source.find("async_add_entities(")
+check(
+    mig_at != -1 and add_at != -1 and mig_at < add_at,
+    "registry unique_id migration runs before entities are added",
+)
+check("mdi:lock-outline" in sensor_source, "Fixer Tarif uses the lock icon")
 
 print("ALL TESTS PASSED")

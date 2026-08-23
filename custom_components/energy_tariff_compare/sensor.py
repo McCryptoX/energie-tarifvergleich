@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, PLAT_NAME, REFERENCE_ID
+from .const import (
+    DOMAIN,
+    PLAT_NAME,
+    PRICE_ENTITY_IDS,
+    PRICE_UNIQUE_ID_MIGRATIONS,
+    REFERENCE_ID,
+    leftover_unique_id_action,
+)
+
+_LOGGER = logging.getLogger(__name__)
 
 TARIFF_LABELS = {
     "octopus_heat": "Octopus Heat aktuell",
@@ -21,8 +32,45 @@ TARIFF_LABELS = {
     "dynamic_perfect": "Dynamisch perfekt (theoretisch)",
 }
 
+PRICE_NOW_ICONS = {
+    "octopus_heat": "mdi:file-sign",
+    "octopus_heat_loyalty": "mdi:star-outline",
+    "fix_tarif": "mdi:lock-outline",
+    "dynamic": "mdi:chart-timeline-variant",
+    "dynamic_modul3": "mdi:sine-wave",
+}
+
+
+def migrate_renamed_price_unique_ids(hass: HomeAssistant) -> None:
+    """Retarget or drop leftover unique_ids from a tariff-id rename.
+
+    If this install already created the new unique_id (both rows exist), remove
+    the leftover so the dashboard keeps `sensor.tarifvergleich_preis_fix`.
+    If only the old unique_id exists, retarget it before entities are added.
+    """
+    registry = er.async_get(hass)
+    for old_uid, new_uid in PRICE_UNIQUE_ID_MIGRATIONS.items():
+        old_eid = registry.async_get_entity_id("sensor", DOMAIN, old_uid)
+        new_eid = registry.async_get_entity_id("sensor", DOMAIN, new_uid)
+        action = leftover_unique_id_action(old_eid, new_eid)
+        if action == "skip":
+            continue
+        if action == "remove_old":
+            registry.async_remove(old_eid)
+            _LOGGER.info("Removed leftover price entity %s after tariff id rename", old_eid)
+            continue
+        updates: dict[str, str] = {"new_unique_id": new_uid}
+        desired = PRICE_ENTITY_IDS.get(new_uid)
+        if desired:
+            occupant = registry.async_get(desired)
+            if occupant is None or occupant.entity_id == old_eid:
+                updates["new_entity_id"] = desired
+        registry.async_update_entity(old_eid, **updates)
+        _LOGGER.info("Retargeted price unique_id %s -> %s (%s)", old_uid, new_uid, old_eid)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    migrate_renamed_price_unique_ids(hass)
     async_add_entities(
         [
             PricesSensor(hass),
@@ -132,7 +180,7 @@ class PriceNowSensor(_Base):
         self._attr_native_unit_of_measurement = "ct/kWh"
         self._attr_suggested_display_precision = 2
         self._attr_state_class = SensorStateClass.MEASUREMENT
-        self._attr_icon = "mdi:cash"
+        self._attr_icon = PRICE_NOW_ICONS.get(tid, "mdi:cash")
         self.entity_id = f"sensor.{object_id}"
 
     @property

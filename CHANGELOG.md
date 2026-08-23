@@ -5,6 +5,8 @@
 - **Tesla Wall Connector Baseline-Sicherheit:** Wenn beim ersten Start noch kein Netzbezug vorliegt, rückt `last_tesla` nicht vor, ohne dass das Delta als ausstehend (`pending`) gebucht wird.
 - **Tesla Zähler-Reset:** Offene ausstehende kWh (`tesla_pending_extra`) bleiben bei einem Zähler-Reset erhalten und werden mit dem neuen Zählerstand zusammen gebucht.
 - **Null-Netzbezug-Slots:** Reparierte Slots mit 0 kWh Netzbezug addieren das Tesla-Delta, anstatt Werte zu überschreiben.
+- **Fix-Tarif-ID:** Technischer Schlüssel `naturwerke_fix` → `fix_tarif` (SQLite `RENAME COLUMN`, Dashboard, Sensor `sensor.tarifvergleich_preis_fix`).
+- **Entity-Registry:** Hängender Alt-Sensor `sensor.tarifvergleich_preis_naturwerke` (`etc_price_naturwerke_fix`) wird beim Setup entfernt; fehlt der neue Sensor noch, wird die `unique_id` umgehängt.
 
 ## 0.1.6 — 2026-08-23
 
