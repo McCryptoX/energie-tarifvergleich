@@ -203,6 +203,57 @@ def main():
             "today ranking ignores days_expected",
         )
 
+        def slot_row(hour, minute, kwh, spot):
+            local = datetime(2026, 8, 20, hour, minute, tzinfo=T.TZ)
+            start = local.astimezone(timezone.utc)
+            return {
+                "interval_start": start.replace(microsecond=0).isoformat(),
+                "local_start": local.replace(microsecond=0).isoformat(),
+                "grid_import_kwh": kwh,
+                "nordpool_eur_kwh": spot,
+            }
+
+        heat_mix = [
+            slot_row(3, 0, 2.0, 0.05),
+            slot_row(3, 15, 2.0, 0.05),
+            slot_row(8, 0, 1.0, 0.05),
+            slot_row(19, 0, 1.0, 0.05),
+        ]
+        heat_hit = C.cheap_window_hit(cfg, heat_mix, "octopus_heat")
+        check(
+            heat_hit is not None and heat_hit["kwh_cheap"] == 4.0 and heat_hit["kwh_total"] == 6.0,
+            "heat NT share is 4/6 kWh",
+        )
+        check(
+            C.cheap_window_hit(cfg, [slot_row(8, 0, 1.0, 0.05), slot_row(8, 15, 1.0, 0.05)], "octopus_heat")[
+                "share"
+            ]
+            == 0.0,
+            "heat all standard -> 0",
+        )
+        check(
+            C.cheap_window_hit(cfg, [slot_row(3, 0, 1.0, 0.05), slot_row(13, 0, 1.0, 0.05)], "octopus_heat")[
+                "share"
+            ]
+            == 1.0,
+            "heat all NT -> 1",
+        )
+        dyn = [
+            slot_row(8, 0, 9.0, 0.01),
+            slot_row(8, 15, 1.0, 0.10),
+            slot_row(8, 30, 1.0, 0.20),
+        ]
+        dyn_hit = C.cheap_window_hit(cfg, dyn, "dynamic")
+        check(
+            dyn_hit is not None and dyn_hit["kwh_cheap"] == 9.0 and dyn_hit["kwh_total"] == 11.0,
+            "dynamic cheapest third gets 9/11 kWh",
+        )
+        m3_hit = C.cheap_window_hit(cfg, dyn, "dynamic_modul3")
+        check(
+            m3_hit is not None and m3_hit["kwh_cheap"] == 9.0 and m3_hit["kwh_total"] == 11.0,
+            "modul3 cheapest third same on ST morning",
+        )
+
     print("ALL TESTS PASSED")
 
 

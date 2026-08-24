@@ -313,6 +313,12 @@ class PeriodSensor(_Base):
             if cost is not None and ref_cost is not None and tid != REFERENCE_ID:
                 out[f"delta_vs_heat_{tid}"] = round(float(cost) - float(ref_cost), 2)
         if self._key == "today":
+            out["hit_total_kwh"] = row.get("hit_total_kwh")
+            for tid in ("octopus_heat", "dynamic", "dynamic_modul3"):
+                share = row.get(f"hit_share_{tid}")
+                kwh_hit = row.get(f"hit_kwh_{tid}")
+                out[f"hit_share_{tid}"] = None if share is None else round(float(share), 4)
+                out[f"hit_kwh_{tid}"] = None if kwh_hit is None else round(float(kwh_hit), 3)
             out["cost_dynamic_perfect"] = None
             out["cost_dynamic_flat_perfect"] = None
             out["effective_ct_dynamic_perfect"] = None

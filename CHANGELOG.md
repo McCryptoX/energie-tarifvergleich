@@ -6,6 +6,7 @@
 - **Tesla Zähler-Reset:** Offene ausstehende kWh (`tesla_pending_extra`) bleiben bei einem Zähler-Reset erhalten und werden mit dem neuen Zählerstand zusammen gebucht.
 - **Null-Netzbezug-Slots:** Reparierte Slots mit 0 kWh Netzbezug addieren das Tesla-Delta, anstatt Werte zu überschreiben.
 - **Fix-Tarif:** Hypothetischer Festpreistarif heißt überall **Fixer Tarif** (`fix_tarif`, Sensor `sensor.tarifvergleich_preis_fix`). Alte Spalten- und Registry-IDs werden beim Start umbenannt bzw. entfernt.
+- **Ampel günstige Zeiten:** Anteil der heutigen Netz-kWh in Heat-NT (02–06 / 12–16) bzw. im günstigsten Drittel der Slots (Dynamisch, Modul 3), als Attribute an `sensor.tarifvergleich_heute`.
 
 ## 0.1.6 — 2026-08-23
 

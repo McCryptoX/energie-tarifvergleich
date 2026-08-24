@@ -80,7 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "collect_lock": collect_lock,
         "spot_fetch_lock": spot_fetch_lock,
     }
-    data["latest"]["snap"] = await hass.async_add_executor_job(snapshot, store, now_local)
+    data["latest"]["snap"] = await hass.async_add_executor_job(snapshot, store, now_local, cfg)
     hass.data[DOMAIN] = data
 
     async def _readings() -> dict:
@@ -113,7 +113,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await _refresh_prices()
                 return
             data["latest"]["interval"] = row
-            data["latest"]["snap"] = await hass.async_add_executor_job(snapshot, store, stamp)
+            data["latest"]["snap"] = await hass.async_add_executor_job(snapshot, store, stamp, data["cfg"])
             await _refresh_prices()
             hass.bus.async_fire(f"{DOMAIN}_collected", {"quality": row.get("quality")})
 
@@ -204,7 +204,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
             if repriced:
                 data["latest"]["snap"] = await hass.async_add_executor_job(
-                    snapshot, store, dt_util.now()
+                    snapshot, store, dt_util.now(), data["cfg"]
                 )
                 hass.bus.async_fire(f"{DOMAIN}_updated")
         return counts
@@ -234,7 +234,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             data["cfg"] = new_cfg
             data["cfg_hash"] = new_hash
             data["latest"]["snap"] = await hass.async_add_executor_job(
-                snapshot, store, dt_util.now()
+                snapshot, store, dt_util.now(), data["cfg"]
             )
             hass.bus.async_fire(f"{DOMAIN}_updated")
 
@@ -355,7 +355,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if (y, m) > (now.year, now.month):
             y, m = now.year, now.month
         await hass.async_add_executor_job(store.set_meta, "selected_month", f"{y:04d}-{m:02d}")
-        data["latest"]["snap"] = await hass.async_add_executor_job(snapshot, store, now)
+        data["latest"]["snap"] = await hass.async_add_executor_job(snapshot, store, now, data["cfg"])
         hass.bus.async_fire(f"{DOMAIN}_updated")
 
     async def _svc_reload(call: ServiceCall) -> None:
@@ -488,7 +488,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 gap_result["changed_days"],
             )
             data["latest"]["snap"] = await hass.async_add_executor_job(
-                snapshot, store, dt_util.now()
+                snapshot, store, dt_util.now(), data["cfg"]
             )
             hass.bus.async_fire(f"{DOMAIN}_updated")
         except Exception:

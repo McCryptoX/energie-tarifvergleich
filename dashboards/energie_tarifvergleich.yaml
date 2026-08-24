@@ -112,6 +112,62 @@ views:
               {% if err %} **Collector:** {{ err }}{% endif %}
 
           - type: heading
+            heading: Heute · günstige Zeiten getroffen
+            heading_style: subtitle
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_heute
+                primary: Heat
+                secondary: >
+                  {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_octopus_heat') %}
+                  {% if p is number %}{{ (p * 100)|round(0)|int }} % der kWh in 02–06 / 12–16
+                  {% else %}–{% endif %}
+                icon: mdi:traffic-light
+                layout: vertical
+                tap_action:
+                  action: more-info
+                icon_color: >
+                  {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_octopus_heat') %}
+                  {{ 'green' if p is number and p >= 0.40 else 'amber' if p is number and p >= 0.25 else 'red' if p is number else 'grey' }}
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_heute
+                primary: Dynamisch
+                secondary: >
+                  {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic') %}
+                  {% if p is number %}{{ (p * 100)|round(0)|int }} % der kWh im günstigsten Drittel
+                  {% else %}–{% endif %}
+                icon: mdi:traffic-light
+                layout: vertical
+                tap_action:
+                  action: more-info
+                icon_color: >
+                  {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic') %}
+                  {{ 'green' if p is number and p >= 0.40 else 'amber' if p is number and p >= 0.25 else 'red' if p is number else 'grey' }}
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_heute
+                primary: + Modul 3
+                secondary: >
+                  {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic_modul3') %}
+                  {% if p is number %}{{ (p * 100)|round(0)|int }} % der kWh im günstigsten Drittel
+                  {% else %}–{% endif %}
+                icon: mdi:traffic-light
+                layout: vertical
+                tap_action:
+                  action: more-info
+                icon_color: >
+                  {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic_modul3') %}
+                  {{ 'green' if p is number and p >= 0.40 else 'amber' if p is number and p >= 0.25 else 'red' if p is number else 'grey' }}
+          - type: markdown
+            content: >
+              Anteil der **bisherigen Netz-kWh** in den günstigen Fenstern (kein Perfect).
+              Heat = Niedriglast 02–06 und 12–16 Uhr. Dynamisch / Modul 3 = günstigstes Drittel
+              der bisherigen 15-Min-Slots (wie 8 von 24 Stunden). Grün ≥ 40 %, gelb ≥ 25 %, rot darunter.
+              Hochlast Heat 18–21 zählt nicht als Treffer.
+
+          - type: heading
             heading: Haus jetzt
             heading_style: subtitle
           - type: grid
@@ -488,7 +544,9 @@ views:
           - type: markdown
             content: >
               Jahr = zeitliches Tagesmittel der Sensorwerte, kein verbrauchsgewichteter Preis.
-              Dynamisch hat länger Historie als Modul 3. Kein Extra-Add-on.
+              Eine Linie braucht **zwei Kalendertage**. Dynamisch läuft seit 22.08.,
+              Modul 3 erst seit 23.08. 10:03 — deshalb fehlt die Modul-3-Jahreslinie heute noch,
+              obwohl Stundenwerte existieren. Stundenverlauf inkl. Hochlast: Karte **Monat**.
 
   - title: Details
     path: details

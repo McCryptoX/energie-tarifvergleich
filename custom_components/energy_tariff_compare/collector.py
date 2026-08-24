@@ -19,6 +19,7 @@ COST_KEYS = (
     "dynamic",
     "dynamic_modul3",
 )
+HIT_TARIFFS = ("octopus_heat", "dynamic", "dynamic_modul3")
 
 AGGREGATE_SCHEMA_VERSION = "split-costs-v3-tesla-v2"
 TOMORROW_SPOT_RETRY_DELAYS = (120, 300, 600, 900)
@@ -464,6 +465,83 @@ def days_with_interval_or_daily(store: Store, today: date) -> list[date]:
 
 def _round_or_none(value: float | None, digits: int = 6) -> float | None:
     return None if value is None else round(value, digits)
+
+
+def cheap_window_hit(cfg: dict, rows: list[dict], tariff_id: str) -> dict | None:
+    """Share of measured kWh that landed in cheap slots among these rows.
+
+    Heat: niedrig windows (02–06 and 12–16). Dynamic / Modul 3: cheapest third
+    of priced 15-min slots so far (same 8 h / 24 h share as Heat NT).
+    """
+    priced: list[tuple[float, float]] = []
+    heat_cheap: list[bool] = []
+    for row in rows:
+        local = _as_datetime(row.get("local_start"))
+        if local is None:
+            continue
+        local = local.astimezone(T.TZ)
+        kwh = parse_float(row.get("grid_import_kwh"))
+        if kwh is None or kwh < 0:
+            continue
+        if tariff_id == "octopus_heat":
+            slot = T.heat_slot(cfg, local, "octopus_heat")
+            if slot is None:
+                continue
+            priced.append((0.0, kwh))
+            heat_cheap.append(slot == "niedrig")
+            continue
+        spot = parse_float(row.get("nordpool_eur_kwh"))
+        price = T.energy_price_gross_eur_per_kwh(cfg, tariff_id, local, spot)
+        if price is None:
+            continue
+        priced.append((float(price), kwh))
+    if not priced:
+        return None
+    total = sum(item[1] for item in priced)
+    if total <= 1e-12:
+        return None
+    if tariff_id == "octopus_heat":
+        cheap_kwh = sum(kwh for (_, kwh), flag in zip(priced, heat_cheap) if flag)
+    else:
+        n_cheap = max(1, int(round(len(priced) / 3.0)))
+        order = sorted(range(len(priced)), key=lambda index: priced[index][0])
+        cheap_idx = set(order[:n_cheap])
+        cheap_kwh = sum(priced[index][1] for index in cheap_idx)
+    return {
+        "share": round(cheap_kwh / total, 4),
+        "kwh_cheap": round(cheap_kwh, 4),
+        "kwh_total": round(total, 4),
+        "slots": len(priced),
+    }
+
+
+def cheap_hits_for_day(store: Store, cfg: dict, day: date, now: datetime) -> dict:
+    """Hit-rate attributes for today's (or a closed day's) due intervals."""
+    rows = store.intervals_for_day(day)
+    now_local = now.astimezone(T.TZ)
+    expected = T.expected_intervals(day)
+    complete = day < now_local.date()
+    due = expected if complete else _due_interval_count(day, now_local)
+    due_end = datetime(day.year, day.month, day.day, tzinfo=T.TZ).astimezone(timezone.utc) + timedelta(
+        seconds=due * SLOT_SECONDS
+    )
+    due_rows = [
+        row
+        for row in rows
+        if _as_datetime(row.get("interval_start")) is not None
+        and _as_datetime(row["interval_start"]).astimezone(timezone.utc) < due_end
+    ]
+    out: dict = {"hit_total_kwh": None}
+    for tid in HIT_TARIFFS:
+        hit = cheap_window_hit(cfg, due_rows, tid)
+        if hit is None:
+            out[f"hit_share_{tid}"] = None
+            out[f"hit_kwh_{tid}"] = None
+        else:
+            out[f"hit_share_{tid}"] = hit["share"]
+            out[f"hit_kwh_{tid}"] = hit["kwh_cheap"]
+            out["hit_total_kwh"] = hit["kwh_total"]
+    return out
 
 
 def _due_interval_count(day: date, now: datetime) -> int:
@@ -1175,7 +1253,7 @@ def _asdict(row) -> dict | None:
     return {k: row[k] for k in row.keys()}
 
 
-def snapshot(store: Store, now: datetime) -> dict:
+def snapshot(store: Store, now: datetime, cfg: dict | None = None) -> dict:
     today = now.astimezone(T.TZ).date()
     yesterday = today - timedelta(days=1)
     rows = store.snapshot_rows(today, yesterday, None, today.year)
@@ -1199,8 +1277,11 @@ def snapshot(store: Store, now: datetime) -> dict:
             f" · bis {today.isoformat()}"
         ),
     }
+    today_row = _asdict(rows["today"]) or {}
+    if cfg is not None:
+        today_row.update(cheap_hits_for_day(store, cfg, today, now))
     return {
-        "today": _asdict(rows["today"]),
+        "today": today_row,
         "yesterday": _asdict(rows["yesterday"]),
         "week": week,
         "month": _asdict(rows["month"]),
