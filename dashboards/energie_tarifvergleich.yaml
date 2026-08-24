@@ -421,86 +421,88 @@ views:
         column_span: 2
         cards:
           - type: heading
-            heading: Heute · Preise
+            heading: Dynamisch vs. Modul 3
             heading_style: title
+          - type: markdown
+            content: >
+              Gleiche Börse, gleicher Aufschlag, gleiche Umlagen.
+              **Unterschied nur Netzentgelt** (Modul 3 zeitvariabel) plus **§14a-Pauschale** in den Gesamtkosten.
+              Heat bleibt der Vertrag — diese Seite ist der 2027-Vergleich.
+              {% set spot = states('sensor.nord_pool_ger_aktueller_preis') %}
+              {% if is_number(spot) %}Spot jetzt {{ '%.2f'|format(spot|float * 100) | replace('.', ',') }} ct netto.{% endif %}
           - type: grid
-            columns: 4
+            columns: 2
             square: false
             cards:
-              - type: custom:mushroom-template-card
-                entity: sensor.nord_pool_ger_aktueller_preis
-                primary: >
-                  {% set s = states('sensor.nord_pool_ger_aktueller_preis') %}
-                  {% if is_number(s) %}{{ '%.2f'|format(s|float * 100) | replace('.', ',') }}{% else %}–{% endif %}
-                secondary: Spot · ct netto
-                icon: mdi:chart-line
-                layout: vertical
-                multiline_secondary: true
-                icon_color: blue
-                tap_action:
-                  action: more-info
-              - type: custom:mushroom-template-card
-                entity: sensor.tarifvergleich_preise
-                primary: "{{ state_attr('sensor.tarifvergleich_preise', 'today_cheapest_ct') or '–' }}"
-                secondary: >
-                  {% set s = state_attr('sensor.tarifvergleich_preise', 'today_cheapest_span') %}
-                  Günstigster Slot{% if s %} · {{ s }}{% endif %}
-                icon: mdi:arrow-down-bold
-                layout: vertical
-                multiline_secondary: true
-                icon_color: green
-                tap_action:
-                  action: more-info
-              - type: custom:mushroom-template-card
-                entity: sensor.tarifvergleich_preise
-                primary: "{{ state_attr('sensor.tarifvergleich_preise', 'today_peak_ct') or '–' }}"
-                secondary: >
-                  {% set s = state_attr('sensor.tarifvergleich_preise', 'today_peak_span') %}
-                  Peak heute{% if s %} · {{ s }}{% endif %}
-                icon: mdi:arrow-up-bold
-                layout: vertical
-                multiline_secondary: true
-                icon_color: red
-                tap_action:
-                  action: more-info
-              - type: custom:mushroom-template-card
-                entity: sensor.tarifvergleich_preise
-                primary: >
-                  {% set d = state_attr('sensor.tarifvergleich_preise', 'modul3_nt_delta_net_ct') %}
-                  {% if d is number %}{{ '%+.2f'|format(d) | replace('.', ',') }}{% else %}–{% endif %}
-                secondary: NT vs Flach · ct netto
-                icon: mdi:weather-night
-                layout: vertical
-                multiline_secondary: true
-                icon_color: purple
-                tap_action:
-                  action: more-info
+              - type: markdown
+                content: |
+                  {% macro n(v) -%}{%- if v is number -%}{{ '%.1f'|format(v) | replace('.', ',') }}{%- else -%}–{%- endif -%}{%- endmacro %}
+                  {% set e = 'sensor.tarifvergleich_preise' %}
+                  {% set now = states('sensor.tarifvergleich_preis_dynamisch') %}
+                  ### Dynamisch
+                  Flaches Netzentgelt 9,53 ct netto.
+
+                  | | ct/kWh brutto | Wann |
+                  |:--|--:|:--|
+                  | **Jetzt** | {% if is_number(now) %}{{ '%.2f'|format(now|float) | replace('.', ',') }}{% else %}–{% endif %} | aktueller Slot |
+                  | **Tiefst heute** | {{ n(state_attr(e, 'today_dynamic_min_ct')) }} | {{ state_attr(e, 'today_dynamic_min_span') or '–' }} |
+                  | **Höchst heute** | {{ n(state_attr(e, 'today_dynamic_max_ct')) }} | {{ state_attr(e, 'today_dynamic_max_span') or '–' }} |
+              - type: markdown
+                content: |
+                  {% macro n(v) -%}{%- if v is number -%}{{ '%.1f'|format(v) | replace('.', ',') }}{%- else -%}–{%- endif -%}{%- endmacro %}
+                  {% set e = 'sensor.tarifvergleich_preise' %}
+                  {% set now = states('sensor.tarifvergleich_preis_modul3') %}
+                  {% set slot = state_attr(e, 'modul3_slot') %}
+                  {% set slot_l = 'NT' if slot == 'nt' else 'HT' if slot == 'ht' else 'ST' if slot == 'st' else '–' %}
+                  ### + Modul 3
+                  NT 0,95 / ST 9,53 / HT 15,65 ct netto.
+
+                  | | ct/kWh brutto | Wann |
+                  |:--|--:|:--|
+                  | **Jetzt** | {% if is_number(now) %}{{ '%.2f'|format(now|float) | replace('.', ',') }}{% else %}–{% endif %} | {{ slot_l }} |
+                  | **Tiefst heute** | {{ n(state_attr(e, 'today_modul3_min_ct')) }} | {{ state_attr(e, 'today_modul3_min_span') or '–' }} |
+                  | **Höchst heute** | {{ n(state_attr(e, 'today_modul3_max_ct')) }} | {{ state_attr(e, 'today_modul3_max_span') or '–' }} |
+          - type: markdown
+            content: |
+              {% macro n(v, d=2) -%}{%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}{%- endmacro %}
+              {% set t = 'sensor.tarifvergleich_heute' %}
+              **Heute Gesamt** (Arbeit + Grund + §14a), gleicher Netzbezug:
+              Dynamisch {{ n(state_attr(t, 'cost_dynamic')) }} €
+              · Modul 3 {{ n(state_attr(t, 'cost_dynamic_modul3')) }} €
+              · Heat {{ n(state_attr(t, 'cost_octopus_heat')) }} € (Vertrag).
+              {% set d = state_attr(t, 'cost_dynamic') %}
+              {% set m = state_attr(t, 'cost_dynamic_modul3') %}
+              {% if d is number and m is number %}
+              Modul 3 ist heute {{ n(m - d) }} € {% if m < d %}günstiger{% else %}teurer{% endif %} als Dynamisch.
+              {% endif %}
           - type: custom:mushroom-chips-card
             alignment: justify
             chips:
               - type: template
                 icon: mdi:weather-night
-                icon_color: green
-                content: NT 00–07 · 0,95 ct
+                icon_color: >
+                  {% set slot = state_attr('sensor.tarifvergleich_preise', 'modul3_slot') %}
+                  {{ 'green' if slot == 'nt' else 'grey' }}
+                content: NT 00–07
               - type: template
                 icon: mdi:minus
                 icon_color: >
                   {% set slot = state_attr('sensor.tarifvergleich_preise', 'modul3_slot') %}
                   {{ 'amber' if slot == 'st' else 'grey' }}
-                content: ST 07–15 / 20–24 · 9,53 ct
+                content: ST 07–15 / 20–24
               - type: template
                 icon: mdi:weather-sunny
                 icon_color: >
                   {% set slot = state_attr('sensor.tarifvergleich_preise', 'modul3_slot') %}
                   {{ 'red' if slot == 'ht' else 'grey' }}
-                content: HT 15–20 · 15,65 ct
+                content: HT 15–20
           - type: markdown
             content: >
-              Woche = Recorder ab Sensorstart. Monat/Jahr = Statistik, Modul 3 erst ab 23.08. 10:03.
+              Kurven darunter = nur diese zwei Tarife. Modul-3-Linie ab Sensorstart 23.08. 10:03.
       - type: grid
         cards:
           - type: heading
-            heading: Woche · bis zu 7 Tage
+            heading: Dynamisch vs. Modul 3 · 7 Tage
             heading_style: title
           - type: custom:mini-graph-card
             name: 7 Tage · ct/kWh

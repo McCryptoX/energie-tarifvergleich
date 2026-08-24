@@ -273,6 +273,7 @@ def main():
             abs(kpis["modul3_nt_delta_net_ct"] - (0.95 - 9.53)) < 1e-9,
             "NT vs flat grid delta is net ct from the price sheet",
         )
+        check("today_dynamic_min_ct" in kpis and "today_modul3_min_ct" in kpis, "min/max exist for both dynamic tariffs")
 
     print("ALL TESTS PASSED")
 

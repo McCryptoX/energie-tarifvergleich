@@ -677,39 +677,51 @@ def best_run_windows(store: Store, cfg: dict, now: datetime) -> dict:
 
 
 def today_price_kpis(store: Store, cfg: dict, now: datetime) -> dict:
-    """Today's cheapest/peak Dynamic slot and Modul-3 NT grid delta (net ct)."""
+    """Today's min/max brutto Arbeitspreis, separately for Dynamic and Modul 3."""
     local_now = now.astimezone(T.TZ)
     today = local_now.date()
     spots = store.spots_for_day(today)
     day_start = datetime(today.year, today.month, today.day, tzinfo=T.TZ)
     expected = T.expected_intervals(today)
-    cheapest: tuple[float, datetime] | None = None
-    peak: tuple[float, datetime] | None = None
+    extrema: dict[str, dict[str, tuple[float, datetime] | None]] = {
+        "dynamic": {"min": None, "max": None},
+        "dynamic_modul3": {"min": None, "max": None},
+    }
     for index in range(expected):
         start = (day_start.astimezone(timezone.utc) + timedelta(minutes=15 * index)).astimezone(T.TZ)
         spot = parse_float(spots.get(utc_iso(start.astimezone(timezone.utc))))
-        price = T.energy_price_gross_eur_per_kwh(cfg, "dynamic", start, spot)
-        if price is None:
-            continue
-        value = float(price)
-        if cheapest is None or value < cheapest[0]:
-            cheapest = (value, start)
-        if peak is None or value > peak[0]:
-            peak = (value, start)
+        for tid in ("dynamic", "dynamic_modul3"):
+            price = T.energy_price_gross_eur_per_kwh(cfg, tid, start, spot)
+            if price is None:
+                continue
+            value = float(price)
+            bucket = extrema[tid]
+            if bucket["min"] is None or value < bucket["min"][0]:
+                bucket["min"] = (value, start)
+            if bucket["max"] is None or value > bucket["max"][0]:
+                bucket["max"] = (value, start)
 
     def _span(start: datetime) -> str:
         end = start + timedelta(minutes=15)
         return f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
 
+    def _pack(prefix: str, tid: str) -> dict:
+        low = extrema[tid]["min"]
+        high = extrema[tid]["max"]
+        return {
+            f"today_{prefix}_min_ct": None if low is None else round(low[0] * 100.0, 1),
+            f"today_{prefix}_min_span": None if low is None else _span(low[1]),
+            f"today_{prefix}_max_ct": None if high is None else round(high[0] * 100.0, 1),
+            f"today_{prefix}_max_span": None if high is None else _span(high[1]),
+        }
+
     nt = float(cfg["westnetz_2026"]["modul3"]["nt"]["net_ct_per_kwh"])
     flat = float(cfg["westnetz_2026"]["working_net_ct_per_kwh"])
-    return {
-        "today_cheapest_ct": None if cheapest is None else round(cheapest[0] * 100.0, 1),
-        "today_cheapest_span": None if cheapest is None else _span(cheapest[1]),
-        "today_peak_ct": None if peak is None else round(peak[0] * 100.0, 1),
-        "today_peak_span": None if peak is None else _span(peak[1]),
-        "modul3_nt_delta_net_ct": round(nt - flat, 2),
-    }
+    out = {}
+    out.update(_pack("dynamic", "dynamic"))
+    out.update(_pack("modul3", "dynamic_modul3"))
+    out["modul3_nt_delta_net_ct"] = round(nt - flat, 2)
+    return out
 
 
 def _due_interval_count(day: date, now: datetime) -> int:

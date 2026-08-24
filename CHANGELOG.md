@@ -9,6 +9,7 @@
 - **Ampel günstige Zeiten:** Anteil der heutigen Netz-kWh in Heat-NT (02–06 / 12–16) bzw. im günstigsten Drittel der Slots (Dynamisch, Modul 3), als Attribute an `sensor.tarifvergleich_heute`.
 - **Einschaltfenster:** Nächste Heat-NT sowie günstigste zusammenhängende 1-/2-/3-Stunden-Blöcke (Dynamisch / Modul 3) aus gespeicherten Spotpreisen, nur Anzeige.
 - **Dashboard-Lesbarkeit:** Große Preis-Zahlen, Ampel als Chips, Einschalten/Haus nebeneinander, Preis-KPIs (günstigster Slot, Peak, NT-Delta).
+- **Preise-Tab:** Dynamisch und Modul 3 getrennt (Jetzt / Tiefst / Höchst / heutige Gesamtkosten), nicht in einer gemischten KPI-Zeile.
 
 ## 0.1.6 — 2026-08-23
 
