@@ -254,6 +254,21 @@ def main():
             "modul3 cheapest third same on ST morning",
         )
 
+        t0 = datetime(2026, 8, 20, 2, 0, tzinfo=T.TZ)
+        slots = [
+            (t0, 0.40),
+            (t0 + timedelta(minutes=15), 0.10),
+            (t0 + timedelta(minutes=30), 0.10),
+            (t0 + timedelta(minutes=45), 0.40),
+        ]
+        found = C.cheapest_contiguous(slots, 2)
+        check(found is not None and found[0] == t0 + timedelta(minutes=15), "cheapest 2 slots start at 02:15")
+        check(found is not None and abs(found[2] - 0.10) < 1e-9, "cheapest 2-slot mean is 0.10")
+        heat_now = C.next_heat_nt_window(cfg, datetime(2026, 8, 20, 13, 0, tzinfo=T.TZ))
+        check(heat_now["heat_when"] == "heute" and heat_now["heat_span"] == "13:00–16:00", "heat NT remaining 13–16")
+        heat_eve = C.next_heat_nt_window(cfg, datetime(2026, 8, 20, 17, 0, tzinfo=T.TZ))
+        check(heat_eve["heat_when"] == "morgen" and heat_eve["heat_span"] == "02:00–06:00", "after 16:00 next NT is 02–06")
+
     print("ALL TESTS PASSED")
 
 

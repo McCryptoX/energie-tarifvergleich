@@ -237,6 +237,68 @@ views:
                 content: "Grün ab 40 % · Gelb ab 25 % · Rot darunter. Anteil der bisherigen Netz-kWh."
 
       - type: grid
+        column_span: 2
+        cards:
+          - type: grid
+            columns: 1
+            square: false
+            cards:
+              - type: heading
+                heading: Wann einschalten
+                heading_style: title
+              - type: grid
+                columns: 3
+                square: false
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: sensor.tarifvergleich_preise
+                    primary: "{{ state_attr('sensor.tarifvergleich_preise', 'heat_span') or '–' }}"
+                    secondary: >
+                      {% set w = state_attr('sensor.tarifvergleich_preise', 'heat_when') %}
+                      Heat NT{% if w %} · {{ w }}{% endif %}
+                    icon: mdi:clock-outline
+                    layout: vertical
+                    tap_action:
+                      action: more-info
+                    icon_color: cyan
+                  - type: custom:mushroom-template-card
+                    entity: sensor.tarifvergleich_preise
+                    primary: "{{ state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h') or '–' }}"
+                    secondary: >
+                      {% set w = state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h_when') %}
+                      {% set c = state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h_ct') %}
+                      Dynamisch · 2 h{% if w %} · {{ w }}{% endif %}{% if c is number %} · {{ '%.1f'|format(c) | replace('.', ',') }} ct{% endif %}
+                    icon: mdi:dishwasher
+                    layout: vertical
+                    tap_action:
+                      action: more-info
+                    icon_color: indigo
+                  - type: custom:mushroom-template-card
+                    entity: sensor.tarifvergleich_preise
+                    primary: "{{ state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h') or '–' }}"
+                    secondary: >
+                      {% set w = state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h_when') %}
+                      {% set c = state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h_ct') %}
+                      Modul 3 · 2 h{% if w %} · {{ w }}{% endif %}{% if c is number %} · {{ '%.1f'|format(c) | replace('.', ',') }} ct{% endif %}
+                    icon: mdi:washing-machine
+                    layout: vertical
+                    tap_action:
+                      action: more-info
+                    icon_color: purple
+              - type: markdown
+                content: >
+                  {% set e = 'sensor.tarifvergleich_preise' %}
+                  {% macro w(tid, h) -%}
+                  {%- set s = state_attr(e, 'run_' ~ tid ~ '_' ~ h ~ 'h') -%}
+                  {%- set d = state_attr(e, 'run_' ~ tid ~ '_' ~ h ~ 'h_when') -%}
+                  {%- set c = state_attr(e, 'run_' ~ tid ~ '_' ~ h ~ 'h_ct') -%}
+                  {%- if s -%}{{ d }} {{ s }}{% if c is number %} ({{ '%.1f'|format(c) | replace('.', ',') }} ct){% endif %}{%- else -%}–{%- endif -%}
+                  {%- endmacro %}
+                  **1 h** Dyn {{ w('dynamic', 1) }} · M3 {{ w('modul3', 1) }}
+                  · **3 h** Dyn {{ w('dynamic', 3) }} · M3 {{ w('modul3', 3) }}.
+                  Heat-NT 02–06 und 12–16, Hochlast 18–21 meiden. Nur Anzeige, keine Steuerung.
+
+      - type: grid
         cards:
           - type: heading
             heading: Netzbezug 24 h

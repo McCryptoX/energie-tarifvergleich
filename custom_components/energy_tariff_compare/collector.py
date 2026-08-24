@@ -5,7 +5,7 @@ from __future__ import annotations
 import bisect
 import json
 import math
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -541,6 +541,138 @@ def cheap_hits_for_day(store: Store, cfg: dict, day: date, now: datetime) -> dic
             out[f"hit_share_{tid}"] = hit["share"]
             out[f"hit_kwh_{tid}"] = hit["kwh_cheap"]
             out["hit_total_kwh"] = hit["kwh_total"]
+    return out
+
+
+def cheapest_contiguous(
+    slots: list[tuple[datetime, float]], count: int
+) -> tuple[datetime, datetime, float] | None:
+    """Cheapest consecutive `count` 15-min slots; mean is EUR/kWh."""
+    if count <= 0 or len(slots) < count:
+        return None
+    best_index = 0
+    best = sum(slots[index][1] for index in range(count))
+    current = best
+    for index in range(count, len(slots)):
+        current += slots[index][1] - slots[index - count][1]
+        if current < best:
+            best = current
+            best_index = index - count + 1
+    start = slots[best_index][0]
+    end = start + timedelta(minutes=15 * count)
+    return start, end, best / count
+
+
+def _span_label(now: datetime, start: datetime, end: datetime) -> tuple[str, str]:
+    local_now = now.astimezone(T.TZ)
+    start = start.astimezone(T.TZ)
+    end = end.astimezone(T.TZ)
+    today = local_now.date()
+    if start.date() == today:
+        when = "heute"
+    elif start.date() == today + timedelta(days=1):
+        when = "morgen"
+    else:
+        when = start.strftime("%d.%m.")
+    span = f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
+    return when, span
+
+
+def remaining_priced_slots(
+    store: Store, cfg: dict, now: datetime, tariff_id: str
+) -> list[list[tuple[datetime, float]]]:
+    """Contiguous priced 15-min runs from the current slot through tomorrow."""
+    local_now = now.astimezone(T.TZ)
+    start_local, _ = T.interval_floor(local_now)
+    today = local_now.date()
+    tomorrow = today + timedelta(days=1)
+    end_utc = datetime(tomorrow.year, tomorrow.month, tomorrow.day, tzinfo=T.TZ).astimezone(
+        timezone.utc
+    ) + timedelta(days=1)
+    spots = dict(store.spots_for_day(today))
+    spots.update(store.spots_for_day(tomorrow))
+    cursor = start_local.astimezone(timezone.utc)
+    segments: list[list[tuple[datetime, float]]] = []
+    current: list[tuple[datetime, float]] = []
+    while cursor < end_utc:
+        spot = parse_float(spots.get(utc_iso(cursor)))
+        local = cursor.astimezone(T.TZ)
+        price = T.energy_price_gross_eur_per_kwh(cfg, tariff_id, local, spot)
+        if price is None:
+            if current:
+                segments.append(current)
+                current = []
+        else:
+            current.append((local, float(price)))
+        cursor += timedelta(minutes=15)
+    if current:
+        segments.append(current)
+    return segments
+
+
+def best_window_for_hours(
+    segments: list[list[tuple[datetime, float]]], hours: int, now: datetime
+) -> dict | None:
+    count = hours * 4
+    best: tuple[datetime, datetime, float] | None = None
+    for segment in segments:
+        found = cheapest_contiguous(segment, count)
+        if found is None:
+            continue
+        if best is None or found[2] < best[2]:
+            best = found
+    if best is None:
+        return None
+    start, end, mean = best
+    when, span = _span_label(now, start, end)
+    return {
+        "when": when,
+        "span": span,
+        "ct": round(mean * 100.0, 1),
+        "hours": hours,
+    }
+
+
+def next_heat_nt_window(cfg: dict, now: datetime) -> dict:
+    local = now.astimezone(T.TZ)
+    floor, _ = T.interval_floor(local)
+    tariff = T.tariff_by_id(cfg, "octopus_heat")
+    ranges = tariff["windows"]["niedrig"]
+    for offset in (0, 1):
+        day = local.date() + timedelta(days=offset)
+        for item in ranges:
+            start_clock = T.parse_hhmm(item["from"])
+            end_clock = T.parse_hhmm(item["to"])
+            start = datetime.combine(day, start_clock, tzinfo=T.TZ)
+            if item["to"] in ("24:00", "24:00:00"):
+                end = datetime.combine(day + timedelta(days=1), time(0, 0), tzinfo=T.TZ)
+            else:
+                end = datetime.combine(day, end_clock, tzinfo=T.TZ)
+            if end <= floor:
+                continue
+            begin = start if start >= floor else floor
+            if begin >= end:
+                continue
+            when, span = _span_label(now, begin, end)
+            return {"heat_when": when, "heat_span": span}
+    return {"heat_when": None, "heat_span": None}
+
+
+def best_run_windows(store: Store, cfg: dict, now: datetime) -> dict:
+    """Forward-looking cheapest run blocks. Display only, no device control."""
+    out = next_heat_nt_window(cfg, now)
+    for tid, prefix in (("dynamic", "dynamic"), ("dynamic_modul3", "modul3")):
+        segments = remaining_priced_slots(store, cfg, now, tid)
+        for hours in (1, 2, 3):
+            found = best_window_for_hours(segments, hours, now)
+            if found is None:
+                out[f"run_{prefix}_{hours}h"] = None
+                out[f"run_{prefix}_{hours}h_when"] = None
+                out[f"run_{prefix}_{hours}h_ct"] = None
+            else:
+                out[f"run_{prefix}_{hours}h"] = found["span"]
+                out[f"run_{prefix}_{hours}h_when"] = found["when"]
+                out[f"run_{prefix}_{hours}h_ct"] = found["ct"]
     return out
 
 
@@ -1278,8 +1410,10 @@ def snapshot(store: Store, now: datetime, cfg: dict | None = None) -> dict:
         ),
     }
     today_row = _asdict(rows["today"]) or {}
+    run_windows: dict = {}
     if cfg is not None:
         today_row.update(cheap_hits_for_day(store, cfg, today, now))
+        run_windows = best_run_windows(store, cfg, now)
     return {
         "today": today_row,
         "yesterday": _asdict(rows["yesterday"]),
@@ -1291,6 +1425,7 @@ def snapshot(store: Store, now: datetime, cfg: dict | None = None) -> dict:
         "selected_label": f"{m:02d}/{y}",
         "tesla_count_started_utc": rows.get("tesla_count_started_utc"),
         "tesla_pending_kwh": parse_float(rows.get("tesla_pending_kwh")),
+        "run_windows": run_windows,
     }
 
 
