@@ -317,30 +317,48 @@ views:
                   {% if ns.val is number %}Gesamt {{ ns.name }} {{ '%.2f'|format(ns.val) | replace('.', ',') }} €{% if heat is number and ns.name != 'Heat' %} · {{ '%+.2f'|format(ns.val - heat) | replace('.', ',') }} € vs Heat{% endif %}{% else %}noch kein Vergleich{% endif %}
                   {% endif %}
           - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
+            content: >
               {% set e = 'sensor.tarifvergleich_heute' %}
               {% set s = states(e) %}
-              {% if s in ['unknown', 'unavailable'] %}
-              Noch keine Tagesdaten.
-              {% else %}
-              {% set due = state_attr(e, 'intervals_due') %}
-              {% set ok = state_attr(e, 'intervals_ok') %}
-              {% set missing = state_attr(e, 'intervals_missing') %}
-              **{{ '%.2f'|format(s|float(0)) | replace('.', ',') }} kWh**{% if ok is number and due is number %} · {{ ok }}/{{ due }}{% if missing %} · {{ missing }} fehlend{% endif %}{% endif %}
-
-              | Tarif | Gesamt | vs Heat |
-              |:--|--:|--:|
-              | **Heat** | {{ n(state_attr(e, 'cost_octopus_heat')) }} € | Referenz |
-              | **Loyalty** | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'delta_vs_heat_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'cost_fix_tarif')) }} € | {{ n(state_attr(e, 'delta_vs_heat_fix_tarif')) }} € |
-              | **Dynamisch** | {{ n(state_attr(e, 'cost_dynamic')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic')) }} € |
-              | **+ Modul 3** | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic_modul3')) }} € |
-
-              Perfect nach Tagesende. Aufteilung Arbeit/Grund/§14a im Tab **Details**.
-              {% endif %}
+              {% if is_number(s) %}{{ '%.2f'|format(s|float) | replace('.', ',') }} kWh{% else %}– kWh{% endif %}
+              {% set ok = state_attr(e, 'intervals_ok') %}{% set due = state_attr(e, 'intervals_due') %}
+              {% if ok is number and due is number %} · {{ ok }}/{{ due }}{% endif %}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Heat · Vertrag
+            icon: mdi:file-sign
+            icon_color: cyan
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_dynamic_modul3') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'delta_vs_heat_dynamic_modul3') %}
+              Modul 3{% if c is number %} · {{ '%+.2f'|format(c) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:sine-wave
+            icon_color: purple
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_dynamic') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'delta_vs_heat_dynamic') %}
+              Dynamisch{% if c is number %} · {{ '%+.2f'|format(c) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:chart-timeline-variant
+            icon_color: indigo
+            multiline_secondary: true
+            tap_action:
+              action: more-info
 
       - type: grid
         cards:
@@ -379,36 +397,48 @@ views:
                   {% if ns.val is number %}Gesamt {{ ns.name }} {{ '%.2f'|format(ns.val) | replace('.', ',') }} €{% if heat is number and ns.name != 'Heat' %} · {{ '%+.2f'|format(ns.val - heat) | replace('.', ',') }} € vs Heat{% endif %}{% else %}kein Vergleich{% endif %}
                   {% endif %}
           - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
+            content: >
               {% set e = 'sensor.tarifvergleich_gestern' %}
               {% set s = states(e) %}
-              {% if s in ['unknown', 'unavailable'] %}
-              Gestern wird nach Tagesende berechnet.
-              {% else %}
-              {% set ok = state_attr(e, 'intervals_ok') %}
-              {% set due = state_attr(e, 'intervals_due') %}
-              **{{ '%.2f'|format(s|float(0)) | replace('.', ',') }} kWh**{% if ok is number and due is number %} · {{ ok }}/{{ due }}{% endif %}
-
-              | Tarif | Gesamt | vs Heat |
-              |:--|--:|--:|
-              | **Heat** | {{ n(state_attr(e, 'cost_octopus_heat')) }} € | Referenz |
-              | **Loyalty** | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'delta_vs_heat_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'cost_fix_tarif')) }} € | {{ n(state_attr(e, 'delta_vs_heat_fix_tarif')) }} € |
-              | **Dynamisch** | {{ n(state_attr(e, 'cost_dynamic')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic')) }} € |
-              | **+ Modul 3** | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'delta_vs_heat_dynamic_modul3')) }} € |
-
-              {% set pd = state_attr(e, 'perfect_days') %}
-              {% if pd is number and pd|int(0) > 0 %}
-              {% set pf = state_attr(e, 'cost_dynamic_flat_perfect') %}
-              {% set pm = state_attr(e, 'cost_dynamic_perfect') %}
-              {% set pfp = state_attr(e, 'potential_dynamic_eur') %}
-              {% set pmp = state_attr(e, 'potential_eur') %}
-              **Perfect** (theoretische Untergrenze): Dynamisch {{ n(pf) }} € · Potenzial {{ n(pfp) }} € · Modul 3 {{ n(pm) }} € · Potenzial {{ n(pmp) }} €
-              {% endif %}
-              {% endif %}
+              {% if is_number(s) %}{{ '%.2f'|format(s|float) | replace('.', ',') }} kWh{% else %}– kWh{% endif %}
+              {% set ok = state_attr(e, 'intervals_ok') %}{% set due = state_attr(e, 'intervals_due') %}
+              {% if ok is number and due is number %} · {{ ok }}/{{ due }}{% endif %}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Heat · Vertrag
+            icon: mdi:file-sign
+            icon_color: cyan
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_dynamic_modul3') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'delta_vs_heat_dynamic_modul3') %}
+              Modul 3{% if c is number %} · {{ '%+.2f'|format(c) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:sine-wave
+            icon_color: purple
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_dynamic') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'delta_vs_heat_dynamic') %}
+              Dynamisch{% if c is number %} · {{ '%+.2f'|format(c) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:chart-timeline-variant
+            icon_color: indigo
+            multiline_secondary: true
+            tap_action:
+              action: more-info
 
   - title: Preise
     path: preise
@@ -565,10 +595,9 @@ views:
               Eine Linie braucht **zwei Kalendertage**. Dynamisch läuft seit 22.08.,
               Modul 3 erst seit 23.08. 10:03 — deshalb fehlt die Modul-3-Jahreslinie heute noch,
               obwohl Stundenwerte existieren. Stundenverlauf inkl. Hochlast: Karte **Monat**.
-
   - title: Details
     path: details
-    icon: mdi:table-large
+    icon: mdi:receipt-text-outline
     show_icon_and_title: true
     type: sections
     max_columns: 2
@@ -576,113 +605,338 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: Heute · Aufteilung
+            heading: Heute
             heading_style: title
           - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
-              {% macro wp(v, kwh, missing_price=0) -%}
-              {%- if v is number and kwh is number and kwh|float > 0.001 and missing_price|int(0) == 0 -%}{{ '%.2f'|format(100 * v|float / kwh|float) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
+            content: >
               {% set e = 'sensor.tarifvergleich_heute' %}
               {% set s = states(e) %}
-              {% if s in ['unknown', 'unavailable'] %}
-              Noch keine Tagesdaten.
-              {% else %}
+              {% if is_number(s) %}{{ '%.2f'|format(s|float) | replace('.', ',') }} kWh{% else %}– kWh{% endif %}
               {% set ok = state_attr(e, 'intervals_ok') %}
               {% set due = state_attr(e, 'intervals_due') %}
-              {% set missing = state_attr(e, 'intervals_missing') %}
-              {% set future = state_attr(e, 'intervals_future') %}
-              {% set through = state_attr(e, 'data_through') %}
-              {% set through_ts = as_timestamp(through, none) if through else none %}
-              **Netzbezug:** {{ '%.2f'|format(s|float(0)) | replace('.', ',') }} kWh
-              {% if ok is number and due is number %} · fällig {{ due }} · da {{ ok }}{% if missing %} · fehlend {{ missing }}{% endif %}{% if future %} · künftig {{ future }}{% endif %}{% endif %}
-              {% if through_ts is number %} · Stand {{ through_ts | timestamp_custom('%H:%M', true) }} Uhr{% endif %}
-
-              Mobil: Tabelle seitlich wischen.
-
-              | Tarif | Arbeit EUR · Ø ct/kWh | Grund/Fix | Gesamt |
-              |:--|--:|--:|--:|
-              | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
-              | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
-              | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
-              | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
-
-              {% set p14a = state_attr(e, 'paragraph_14a_eur') %}
-              {% if p14a is number %}davon Paragraph-14a-Gutschrift: {{ n(p14a) }} €{% endif %}
-
-              Arbeit = verbrauchsabhängige Kosten. Grund/Fix ohne §14a. Perfect nach vollständigem Tag.
-              {% endif %}
-
+              {% if ok is number and due is number %} · {{ ok }}/{{ due }} Slots{% endif %}
+              {% set days = state_attr(e, 'days_complete') %}
+              {% if days is number %} · {{ days }} volle Tage{% endif %}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_heute', 'energy_cost_octopus_heat') %}
+              {% set g = state_attr('sensor.tarifvergleich_heute', 'standing_cost_octopus_heat') %}
+              Heat · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} € · Vertrag
+            icon: mdi:file-sign
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_heute' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'cyan' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_dynamic_modul3') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_heute', 'energy_cost_dynamic_modul3') %}
+              {% set g = state_attr('sensor.tarifvergleich_heute', 'standing_cost_dynamic_modul3') %}
+              Modul 3 · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_dynamic_modul3') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+              {% set p14a = state_attr('sensor.tarifvergleich_heute', 'paragraph_14a_eur') %}
+              {% if p14a is number %} · §14a {{ '%.2f'|format(p14a) | replace('.', ',') }} €{% endif %}
+            icon: mdi:sine-wave
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_heute' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'purple' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_dynamic') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_heute', 'energy_cost_dynamic') %}
+              {% set g = state_attr('sensor.tarifvergleich_heute', 'standing_cost_dynamic') %}
+              Dynamisch · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_dynamic') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:chart-timeline-variant
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_heute' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'indigo' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat_loyalty') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_heute', 'energy_cost_octopus_heat_loyalty') %}
+              {% set g = state_attr('sensor.tarifvergleich_heute', 'standing_cost_octopus_heat_loyalty') %}
+              Loyalty · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat_loyalty') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:star-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_heute' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_heute
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_fix_tarif') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_heute', 'energy_cost_fix_tarif') %}
+              {% set g = state_attr('sensor.tarifvergleich_heute', 'standing_cost_fix_tarif') %}
+              Fix · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_heute', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_heute', 'cost_fix_tarif') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:lock-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_heute' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_fix_tarif') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
       - type: grid
         cards:
           - type: heading
-            heading: Gestern · Aufteilung
+            heading: Gestern
             heading_style: title
           - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
-              {% macro wp(v, kwh, missing_price=0) -%}
-              {%- if v is number and kwh is number and kwh|float > 0.001 and missing_price|int(0) == 0 -%}{{ '%.2f'|format(100 * v|float / kwh|float) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
+            content: >
               {% set e = 'sensor.tarifvergleich_gestern' %}
               {% set s = states(e) %}
-              {% if s in ['unknown', 'unavailable'] %}
-              Gestern wird nach Tagesende berechnet.
-              {% else %}
+              {% if is_number(s) %}{{ '%.2f'|format(s|float) | replace('.', ',') }} kWh{% else %}– kWh{% endif %}
               {% set ok = state_attr(e, 'intervals_ok') %}
               {% set due = state_attr(e, 'intervals_due') %}
-              {% set missing = state_attr(e, 'intervals_missing') %}
-              {% set through = state_attr(e, 'data_through') %}
-              {% set through_ts = as_timestamp(through, none) if through else none %}
-              **Netzbezug:** {{ '%.2f'|format(s|float(0)) | replace('.', ',') }} kWh
-              {% if ok is number and due is number %} · {{ ok }}/{{ due }}{% if missing %} · fehlend {{ missing }}{% endif %}{% endif %}
-              {% if through_ts is number %} · Stand {{ through_ts | timestamp_custom('%d.%m. %H:%M', true) }} Uhr{% endif %}
-
-              Mobil: Tabelle seitlich wischen.
-
-              | Tarif | Arbeit EUR · Ø ct/kWh | Grund/Fix | Gesamt |
-              |:--|--:|--:|--:|
-              | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
-              | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
-              | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
-              | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
-
-              {% set p14a = state_attr(e, 'paragraph_14a_eur') %}
-              {% if p14a is number %}davon Paragraph-14a-Gutschrift: {{ n(p14a) }} €{% endif %}
-
-              {% set pd = state_attr(e, 'perfect_days') %}
-              {% if pd is number and pd|int(0) > 0 %}
-              {% set pf = state_attr(e, 'cost_dynamic_flat_perfect') %}
-              {% set pfp = state_attr(e, 'potential_dynamic_eur') %}
-              {% set pm = state_attr(e, 'cost_dynamic_perfect') %}
-              {% set pmp = state_attr(e, 'potential_eur') %}
-              **Mathematische Untergrenze** bei frei verschiebbaren Lastblöcken · {{ pd }} vollständiger Tag
-
-              | Tarif | Ist gleiche Basis | Untergrenze | Potenzial |
-              |:--|--:|--:|--:|
-              | **Dynamisch** | {{ n(pf + pfp) if pf is number and pfp is number else '–' }} € | {{ n(pf) }} € | {{ n(pfp) }} € |
-              | **+ Modul 3** | {{ n(pm + pmp) if pm is number and pmp is number else '–' }} € | {{ n(pm) }} € | {{ n(pmp) }} € |
-              {% else %}
-              **Perfect:** kein vollständiger Tag.
-              {% endif %}
-              {% endif %}
-
+              {% if ok is number and due is number %} · {{ ok }}/{{ due }} Slots{% endif %}
+              {% set days = state_attr(e, 'days_complete') %}
+              {% if days is number %} · {{ days }} volle Tage{% endif %}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_gestern', 'energy_cost_octopus_heat') %}
+              {% set g = state_attr('sensor.tarifvergleich_gestern', 'standing_cost_octopus_heat') %}
+              Heat · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} € · Vertrag
+            icon: mdi:file-sign
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_gestern' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'cyan' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_dynamic_modul3') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_gestern', 'energy_cost_dynamic_modul3') %}
+              {% set g = state_attr('sensor.tarifvergleich_gestern', 'standing_cost_dynamic_modul3') %}
+              Modul 3 · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_dynamic_modul3') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+              {% set p14a = state_attr('sensor.tarifvergleich_gestern', 'paragraph_14a_eur') %}
+              {% if p14a is number %} · §14a {{ '%.2f'|format(p14a) | replace('.', ',') }} €{% endif %}
+            icon: mdi:sine-wave
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_gestern' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'purple' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_dynamic') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_gestern', 'energy_cost_dynamic') %}
+              {% set g = state_attr('sensor.tarifvergleich_gestern', 'standing_cost_dynamic') %}
+              Dynamisch · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_dynamic') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:chart-timeline-variant
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_gestern' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'indigo' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat_loyalty') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_gestern', 'energy_cost_octopus_heat_loyalty') %}
+              {% set g = state_attr('sensor.tarifvergleich_gestern', 'standing_cost_octopus_heat_loyalty') %}
+              Loyalty · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat_loyalty') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:star-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_gestern' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_fix_tarif') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_gestern', 'energy_cost_fix_tarif') %}
+              {% set g = state_attr('sensor.tarifvergleich_gestern', 'standing_cost_fix_tarif') %}
+              Fix · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_gestern', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_gestern', 'cost_fix_tarif') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:lock-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_gestern' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_fix_tarif') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_gestern', 'potential_dynamic_eur') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Perfect-Potenzial Dynamisch · nur volle Tage
+            icon: mdi:shuffle-variant
+            icon_color: indigo
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_gestern
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_gestern', 'potential_eur') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Perfect-Potenzial Modul 3 · nur volle Tage
+            icon: mdi:shuffle-variant
+            icon_color: purple
+            multiline_secondary: true
+            tap_action:
+              action: more-info
       - type: grid
         cards:
           - type: heading
             heading: Monat
             heading_style: title
-            badges:
-              - type: entity
-                entity: sensor.tarifvergleich_monat
-                color: amber
           - type: entities
             show_header_toggle: false
             entities:
@@ -697,7 +951,7 @@ views:
                       data:
                         delta: -1
                   - entity: sensor.tarifvergleich_monat
-                    name: Aktueller Monat
+                    name: Aktueller
                     icon: mdi:calendar-today
                     tap_action:
                       action: perform-action
@@ -713,165 +967,394 @@ views:
                       data:
                         delta: 1
           - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
-              {% macro wp(v, kwh, missing_price=0) -%}
-              {%- if v is number and kwh is number and kwh|float > 0.001 and missing_price|int(0) == 0 -%}{{ '%.2f'|format(100 * v|float / kwh|float) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
+            content: >
               {% set e = 'sensor.tarifvergleich_monat' %}
+              **{{ state_attr(e, 'selected_label') or 'Monat' }}**
               {% set s = states(e) %}
-              **{{ state_attr(e, 'selected_label') or state_attr(e, 'selected_month') or 'aktueller Monat' }}**
-              {% if s in ['unknown', 'unavailable'] %}
-              Noch keine Monatsdaten.
-              {% else %}
-              {% set with_data = state_attr(e, 'days_with_data') %}
-              {% set complete = state_attr(e, 'days_complete') %}
-              {% set incomplete = state_attr(e, 'days_incomplete') %}
-              {% set through = state_attr(e, 'data_through') %}
-              {% set through_ts = as_timestamp(through, none) if through else none %}
-              **Netzbezug:** {{ '%.2f'|format(s|float(0)) | replace('.', ',') }} kWh
-              {% if with_data is number %} · {{ with_data }} Tage{% if complete is number %} · {{ complete }} vollständig{% endif %}{% if incomplete %} · {{ incomplete }} unvollständig (inkl. laufendem Tag){% endif %}{% endif %}
-              {% if through_ts is number %} · Stand {{ through_ts | timestamp_custom('%d.%m. %H:%M', true) }} Uhr{% endif %}
-
-              Mobil: Tabelle seitlich wischen.
-
-              | Tarif | Arbeit EUR · Ø ct/kWh | Grund/Fix | Gesamt |
-              |:--|--:|--:|--:|
-              | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
-              | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
-              | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
-              | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
-
-              {% set p14a = state_attr(e, 'paragraph_14a_eur') %}
-              {% if p14a is number %}davon Paragraph-14a-Gutschrift: {{ n(p14a) }} €{% endif %}
-
-              {% set pd = state_attr(e, 'perfect_days') %}
-              {% if pd is number and pd|int(0) > 0 %}
-              {% set pf = state_attr(e, 'cost_dynamic_flat_perfect') %}
-              {% set pfp = state_attr(e, 'potential_dynamic_eur') %}
-              {% set pm = state_attr(e, 'cost_dynamic_perfect') %}
-              {% set pmp = state_attr(e, 'potential_eur') %}
-              **Mathematische Untergrenze** · {{ pd }} vollständige Tage (Ist auf gleicher Tagesbasis, nicht der ganze Monat)
-
-              | Tarif | Ist gleiche Basis | Untergrenze | Potenzial |
-              |:--|--:|--:|--:|
-              | **Dynamisch** | {{ n(pf + pfp) if pf is number and pfp is number else '–' }} € | {{ n(pf) }} € | {{ n(pfp) }} € |
-              | **+ Modul 3** | {{ n(pm + pmp) if pm is number and pmp is number else '–' }} € | {{ n(pm) }} € | {{ n(pmp) }} € |
-              {% else %}
-              **Perfect:** keine vollständigen Tage.
-              {% endif %}
-              {% endif %}
-
+              {% if is_number(s) %}{{ '%.2f'|format(s|float) | replace('.', ',') }} kWh{% else %}– kWh{% endif %}
+              {% set c = state_attr(e, 'days_complete') %}{% if c is number %} · {{ c }} volle Tage{% endif %}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_monat
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_octopus_heat') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_monat', 'energy_cost_octopus_heat') %}
+              {% set g = state_attr('sensor.tarifvergleich_monat', 'standing_cost_octopus_heat') %}
+              Heat · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} € · Vertrag
+            icon: mdi:file-sign
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_monat' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'cyan' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_monat
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_dynamic_modul3') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_monat', 'energy_cost_dynamic_modul3') %}
+              {% set g = state_attr('sensor.tarifvergleich_monat', 'standing_cost_dynamic_modul3') %}
+              Modul 3 · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_monat', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_dynamic_modul3') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+              {% set p14a = state_attr('sensor.tarifvergleich_monat', 'paragraph_14a_eur') %}
+              {% if p14a is number %} · §14a {{ '%.2f'|format(p14a) | replace('.', ',') }} €{% endif %}
+            icon: mdi:sine-wave
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_monat' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'purple' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_monat
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_dynamic') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_monat', 'energy_cost_dynamic') %}
+              {% set g = state_attr('sensor.tarifvergleich_monat', 'standing_cost_dynamic') %}
+              Dynamisch · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_monat', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_dynamic') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:chart-timeline-variant
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_monat' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'indigo' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_monat
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_octopus_heat_loyalty') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_monat', 'energy_cost_octopus_heat_loyalty') %}
+              {% set g = state_attr('sensor.tarifvergleich_monat', 'standing_cost_octopus_heat_loyalty') %}
+              Loyalty · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_monat', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_octopus_heat_loyalty') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:star-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_monat' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_monat
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_fix_tarif') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_monat', 'energy_cost_fix_tarif') %}
+              {% set g = state_attr('sensor.tarifvergleich_monat', 'standing_cost_fix_tarif') %}
+              Fix · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_monat', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_monat', 'cost_fix_tarif') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:lock-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_monat' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_fix_tarif') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_monat
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_monat', 'potential_dynamic_eur') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Perfect-Potenzial Dynamisch · nur volle Tage
+            icon: mdi:shuffle-variant
+            icon_color: indigo
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_monat
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_monat', 'potential_eur') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Perfect-Potenzial Modul 3 · nur volle Tage
+            icon: mdi:shuffle-variant
+            icon_color: purple
+            multiline_secondary: true
+            tap_action:
+              action: more-info
       - type: grid
         cards:
           - type: heading
             heading: Jahr
             heading_style: title
-            badges:
-              - type: entity
-                entity: sensor.tarifvergleich_jahr
-                color: amber
           - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
-              {% macro wp(v, kwh, missing_price=0) -%}
-              {%- if v is number and kwh is number and kwh|float > 0.001 and missing_price|int(0) == 0 -%}{{ '%.2f'|format(100 * v|float / kwh|float) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
+            content: >
               {% set e = 'sensor.tarifvergleich_jahr' %}
               {% set s = states(e) %}
-              {% if s in ['unknown', 'unavailable'] %}
-              Noch keine Jahresdaten.
-              {% else %}
-              {% set with_data = state_attr(e, 'days_with_data') %}
-              {% set complete = state_attr(e, 'days_complete') %}
-              {% set incomplete = state_attr(e, 'days_incomplete') %}
-              {% set through = state_attr(e, 'data_through') %}
-              {% set through_ts = as_timestamp(through, none) if through else none %}
-              **Netzbezug:** {{ '%.2f'|format(s|float(0)) | replace('.', ',') }} kWh
-              {% if with_data is number %} · {{ with_data }} Tage{% if complete is number %} · {{ complete }} vollständig{% endif %}{% if incomplete %} · {{ incomplete }} unvollständig (inkl. laufendem Tag){% endif %}{% endif %}
-              {% if through_ts is number %} · Stand {{ through_ts | timestamp_custom('%d.%m. %H:%M', true) }} Uhr{% endif %}
-
-              Mobil: Tabelle seitlich wischen.
-
-              | Tarif | Arbeit EUR · Ø ct/kWh | Grund/Fix | Gesamt |
-              |:--|--:|--:|--:|
-              | **Heat** | {{ n(state_attr(e, 'energy_cost_octopus_heat')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat')) }} € | {{ n(state_attr(e, 'cost_octopus_heat')) }} € |
-              | **Loyalty** | {{ n(state_attr(e, 'energy_cost_octopus_heat_loyalty')) }} € · {{ wp(state_attr(e, 'energy_cost_octopus_heat_loyalty'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_octopus_heat_loyalty')) }} € | {{ n(state_attr(e, 'cost_octopus_heat_loyalty')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'energy_cost_fix_tarif')) }} € · {{ wp(state_attr(e, 'energy_cost_fix_tarif'), s|float(0)) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_fix_tarif')) }} € | {{ n(state_attr(e, 'cost_fix_tarif')) }} € |
-              | **Dynamisch** | {{ n(state_attr(e, 'energy_cost_dynamic')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic')) }} € | {{ n(state_attr(e, 'cost_dynamic')) }} € |
-              | **+ Modul 3** | {{ n(state_attr(e, 'energy_cost_dynamic_modul3')) }} € · {{ wp(state_attr(e, 'energy_cost_dynamic_modul3'), s|float(0), state_attr(e, 'price_intervals_missing')) }} ct/kWh | {{ n(state_attr(e, 'standing_cost_dynamic_modul3')) }} € | {{ n(state_attr(e, 'cost_dynamic_modul3')) }} € |
-
-              {% set p14a = state_attr(e, 'paragraph_14a_eur') %}
-              {% if p14a is number %}davon Paragraph-14a-Gutschrift: {{ n(p14a) }} €{% endif %}
-
-              {% set pd = state_attr(e, 'perfect_days') %}
-              {% if pd is number and pd|int(0) > 0 %}
-              {% set pf = state_attr(e, 'cost_dynamic_flat_perfect') %}
-              {% set pfp = state_attr(e, 'potential_dynamic_eur') %}
-              {% set pm = state_attr(e, 'cost_dynamic_perfect') %}
-              {% set pmp = state_attr(e, 'potential_eur') %}
-              **Mathematische Untergrenze** · {{ pd }} vollständige Tage (Ist auf gleicher Tagesbasis)
-
-              | Tarif | Ist gleiche Basis | Untergrenze | Potenzial |
-              |:--|--:|--:|--:|
-              | **Dynamisch** | {{ n(pf + pfp) if pf is number and pfp is number else '–' }} € | {{ n(pf) }} € | {{ n(pfp) }} € |
-              | **+ Modul 3** | {{ n(pm + pmp) if pm is number and pmp is number else '–' }} € | {{ n(pm) }} € | {{ n(pmp) }} € |
-              {% else %}
-              **Perfect:** keine vollständigen Tage.
-              {% endif %}
-              {% endif %}
-
+              {% if is_number(s) %}{{ '%.2f'|format(s|float) | replace('.', ',') }} kWh{% else %}– kWh{% endif %}
+              {% set c = state_attr(e, 'days_complete') %}{% if c is number %} · {{ c }} volle Tage{% endif %}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_jahr
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_octopus_heat') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_jahr', 'energy_cost_octopus_heat') %}
+              {% set g = state_attr('sensor.tarifvergleich_jahr', 'standing_cost_octopus_heat') %}
+              Heat · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} € · Vertrag
+            icon: mdi:file-sign
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_jahr' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'cyan' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_jahr
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_dynamic_modul3') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_jahr', 'energy_cost_dynamic_modul3') %}
+              {% set g = state_attr('sensor.tarifvergleich_jahr', 'standing_cost_dynamic_modul3') %}
+              Modul 3 · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_jahr', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_dynamic_modul3') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+              {% set p14a = state_attr('sensor.tarifvergleich_jahr', 'paragraph_14a_eur') %}
+              {% if p14a is number %} · §14a {{ '%.2f'|format(p14a) | replace('.', ',') }} €{% endif %}
+            icon: mdi:sine-wave
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_jahr' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'purple' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_jahr
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_dynamic') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_jahr', 'energy_cost_dynamic') %}
+              {% set g = state_attr('sensor.tarifvergleich_jahr', 'standing_cost_dynamic') %}
+              Dynamisch · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_jahr', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_dynamic') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:chart-timeline-variant
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_jahr' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_dynamic') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'indigo' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_jahr
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_octopus_heat_loyalty') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_jahr', 'energy_cost_octopus_heat_loyalty') %}
+              {% set g = state_attr('sensor.tarifvergleich_jahr', 'standing_cost_octopus_heat_loyalty') %}
+              Loyalty · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_jahr', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_octopus_heat_loyalty') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:star-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_jahr' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_jahr
+            primary: >
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_fix_tarif') %}
+              {% if c is number %}{{ '%.2f'|format(c) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: >
+              {% set a = state_attr('sensor.tarifvergleich_jahr', 'energy_cost_fix_tarif') %}
+              {% set g = state_attr('sensor.tarifvergleich_jahr', 'standing_cost_fix_tarif') %}
+              Fix · Arbeit {% if a is number %}{{ '%.2f'|format(a) | replace('.', ',') }}{% else %}–{% endif %} €
+              · Grund {% if g is number %}{{ '%.2f'|format(g) | replace('.', ',') }}{% else %}–{% endif %} €
+              {% set h = state_attr('sensor.tarifvergleich_jahr', 'cost_octopus_heat') %}
+              {% set c = state_attr('sensor.tarifvergleich_jahr', 'cost_fix_tarif') %}
+              {% if c is number and h is number %} · {{ '%+.2f'|format(c - h) | replace('.', ',') }} € vs Heat{% endif %}
+            icon: mdi:lock-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: >
+              {% set e = 'sensor.tarifvergleich_jahr' %}
+              {% set h = state_attr(e, 'cost_octopus_heat') %}
+              {% set l = state_attr(e, 'cost_octopus_heat_loyalty') %}
+              {% set f = state_attr(e, 'cost_fix_tarif') %}
+              {% set d = state_attr(e, 'cost_dynamic') %}
+              {% set m = state_attr(e, 'cost_dynamic_modul3') %}
+              {% set me = state_attr(e, 'cost_fix_tarif') %}
+              {% set ns = namespace(v=none) %}
+              {% for v in [h, l, f, d, m] %}{% if v is number and (ns.v is none or v < ns.v) %}{% set ns.v = v %}{% endif %}{% endfor %}
+              {{ 'green' if me is number and ns.v is number and (me - ns.v)|abs < 0.005 else 'grey' }}
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_jahr
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_jahr', 'potential_dynamic_eur') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Perfect-Potenzial Dynamisch · nur volle Tage
+            icon: mdi:shuffle-variant
+            icon_color: indigo
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_jahr
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_jahr', 'potential_eur') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Perfect-Potenzial Modul 3 · nur volle Tage
+            icon: mdi:shuffle-variant
+            icon_color: purple
+            multiline_secondary: true
+            tap_action:
+              action: more-info
       - type: grid
-        column_span: 2
         cards:
           - type: heading
-            heading: Wallbox-Laden
+            heading: Wallbox
             heading_style: title
-            badges:
-              - type: entity
-                entity: sensor.tarifvergleich_wallbox
-                color: green
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_wallbox
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_wallbox', 'tesla_kwh_today') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} kWh{% else %}–{% endif %}
+            secondary: Heute geladen · nur Arbeitspreis
+            icon: mdi:ev-station
+            icon_color: green
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_wallbox
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_wallbox', 'tesla_kwh_month') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} kWh{% else %}–{% endif %}
+            secondary: Monat · nur Arbeitspreis
+            icon: mdi:calendar-month
+            icon_color: green
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_wallbox
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_wallbox', 'tesla_cost_octopus_heat_today') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Heute Kosten · Heat
+            icon: mdi:file-sign
+            icon_color: cyan
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_wallbox
+            primary: >
+              {% set v = state_attr('sensor.tarifvergleich_wallbox', 'tesla_cost_dynamic_modul3_today') %}
+              {% if v is number %}{{ '%.2f'|format(v) | replace('.', ',') }} €{% else %}–{% endif %}
+            secondary: Heute Kosten · Modul 3
+            icon: mdi:sine-wave
+            icon_color: purple
+            multiline_secondary: true
+            tap_action:
+              action: more-info
           - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
-              {% set e = 'sensor.tarifvergleich_wallbox' %}
-              {% set s = states(e) %}
-              {% set kwh = state_attr(e, 'tesla_kwh_today') %}
-              {% if s in ['unknown', 'unavailable'] %}
-              Wallbox-Zählung startet mit der nächsten abgeschlossenen Viertelstunde.
-              {% elif kwh is number and kwh|float < 0.0005 and (state_attr(e, 'tesla_kwh_year')|float(0)) < 0.0005 %}
-              {% set started = state_attr(e, 'tesla_count_started_utc') %}
-              {% set started_ts = as_timestamp(started, none) if started else none %}
-              Noch keine Ladung seit Baseline{% if started_ts is number %} ({{ started_ts | timestamp_custom('%d.%m. %H:%M', true) }} Uhr){% endif %}. Nur Arbeitspreis, keine Rechnung.
-              {% else %}
-              {% set started = state_attr(e, 'tesla_count_started_utc') %}
-              {% set started_ts = as_timestamp(started, none) if started else none %}
-              {% set wstart = state_attr(e, 'week_start') %}
-              {% set wsun = state_attr(e, 'week_sunday') %}
-              {% set wstart_ts = as_timestamp(wstart, none) if wstart else none %}
-              {% set wsun_ts = as_timestamp(wsun, none) if wsun else none %}
-              {% if started_ts is number %}Ab {{ started_ts | timestamp_custom('%d.%m. %H:%M', true) }} Uhr · nur Arbeitspreis.{% endif %}
+            content: Keine Rechnung. Weitere Zeiträume im Sensor.
 
-              | Zeitraum | kWh |
-              |:--|--:|
-              | **Heute** | {{ n(state_attr(e, 'tesla_kwh_today'), 3) }} |
-              | **Gestern** | {{ n(state_attr(e, 'tesla_kwh_yesterday'), 3) }} |
-              | **Woche Mo–So**{% if wstart_ts is number and wsun_ts is number %} {{ wstart_ts | timestamp_custom('%d.%m.', true) }}–{{ wsun_ts | timestamp_custom('%d.%m.', true) }}{% endif %} | {{ n(state_attr(e, 'tesla_kwh_week'), 3) }} |
-              | **Monat** | {{ n(state_attr(e, 'tesla_kwh_month'), 3) }} |
-              | **Jahr** | {{ n(state_attr(e, 'tesla_kwh_year'), 3) }} |
-
-              | Tarif | Heute | Gestern | Woche | Monat | Jahr |
-              |:--|--:|--:|--:|--:|--:|
-              | **Heat** | {{ n(state_attr(e, 'tesla_cost_octopus_heat_today')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_week')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_month')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_year')) }} € |
-              | **Loyalty** | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_today')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_week')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_month')) }} € | {{ n(state_attr(e, 'tesla_cost_octopus_heat_loyalty_year')) }} € |
-              | **Fixer Tarif** | {{ n(state_attr(e, 'tesla_cost_fix_tarif_today')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_week')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_month')) }} € | {{ n(state_attr(e, 'tesla_cost_fix_tarif_year')) }} € |
-              | **Dynamisch** | {{ n(state_attr(e, 'tesla_cost_dynamic_today')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_week')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_month')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_year')) }} € |
-              | **+ Modul 3** | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_today')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_yesterday')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_week')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_month')) }} € | {{ n(state_attr(e, 'tesla_cost_dynamic_modul3_year')) }} € |
-              {% endif %}
