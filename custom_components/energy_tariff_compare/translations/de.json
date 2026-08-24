@@ -16,8 +16,8 @@
       "yesterday": { "name": "Gestern" },
       "month": { "name": "Monat" },
       "year": { "name": "Jahr" },
+      "total": { "name": "Gesamt" },
       "wallbox": { "name": "Wallbox-Laden" }
     }
   }
 }
-

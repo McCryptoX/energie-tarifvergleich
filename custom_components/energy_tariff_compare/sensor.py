@@ -93,6 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             PeriodSensor(hass, "yesterday", "Gestern", "tarifvergleich_gestern"),
             PeriodSensor(hass, "month", "Monat", "tarifvergleich_monat"),
             PeriodSensor(hass, "year", "Jahr", "tarifvergleich_jahr"),
+            PeriodSensor(hass, "total", "Gesamt", "tarifvergleich_gesamt"),
             IntervalKwhSensor(hass),
             DynamicPriceSensor(hass),
             Modul3PriceSensor(hass),
@@ -235,6 +236,15 @@ class PeriodSensor(_Base):
         snap_root = self._data().get("snap") or {}
         row = dict(snap_root.get(self._key) or {})
         kwh = float(row.get("grid_import_kwh") or 0.0)
+        calendar_coverage_ok = True
+        if self._key in {"month", "year", "total"}:
+            days_with = row.get("days_with_data")
+            days_expected = row.get("days_expected")
+            calendar_coverage_ok = bool(
+                days_with is not None
+                and days_expected is not None
+                and int(days_with) == int(days_expected)
+            )
         out = {
             "quality": row.get("quality"),
             "intervals_ok": row.get("intervals_ok"),
@@ -250,6 +260,9 @@ class PeriodSensor(_Base):
             "days_expected": row.get("days_expected"),
             "perfect_days": row.get("perfect_days"),
             "data_through": row.get("data_through"),
+            "data_from": row.get("data_from"),
+            "period_start": row.get("period_start"),
+            "period_end": row.get("period_end"),
             "required_intervals": row.get("intervals_due"),
             "selected_month": snap_root.get("selected_month"),
             "selected_label": snap_root.get("selected_label"),
@@ -296,7 +309,9 @@ class PeriodSensor(_Base):
                 price_present = max(0, energy_present - missing_price)
             out[f"energy_intervals_present_{tid}"] = energy_present
             out[f"price_intervals_present_{tid}"] = price_present
-            coverage_ok = int(row.get("intervals_missing") or 0) == 0
+            coverage_ok = (
+                int(row.get("intervals_missing") or 0) == 0 and calendar_coverage_ok
+            )
             if tid in {"dynamic", "dynamic_modul3", "dynamic_perfect"}:
                 coverage_ok = coverage_ok and int(row.get("price_intervals_missing") or 0) == 0
             if energy_cost is not None and kwh > 0.001 and coverage_ok:
@@ -305,7 +320,10 @@ class PeriodSensor(_Base):
                 work_price = None
             out[f"work_price_ct_{tid}"] = work_price
             out[f"coverage_complete_{tid}"] = bool(
-                required is not None and missing_energy == 0 and missing_price == 0
+                required is not None
+                and missing_energy == 0
+                and missing_price == 0
+                and calendar_coverage_ok
             )
             out[f"effective_total_ct_{tid}"] = (
                 round(100.0 * float(cost) / kwh, 2)
@@ -313,7 +331,11 @@ class PeriodSensor(_Base):
                 else None
             )
             out[f"total_effective_ct_{tid}"] = out[f"effective_total_ct_{tid}"]
-            if cost is not None and ref_cost is not None and tid != REFERENCE_ID:
+            if (
+                cost is not None
+                and ref_cost is not None
+                and tid not in {REFERENCE_ID, "dynamic_perfect"}
+            ):
                 out[f"delta_vs_heat_{tid}"] = round(float(cost) - float(ref_cost), 2)
         if self._key == "today":
             out["hit_total_kwh"] = row.get("hit_total_kwh")
@@ -336,7 +358,7 @@ class PeriodSensor(_Base):
             out["potential_eur"] = row.get("potential_eur")
             out["potential_dynamic_eur"] = row.get("potential_dynamic_eur")
             out["potential_pct"] = row.get("potential_pct")
-        if self._key == "year":
+        if self._key in {"year", "total"}:
             out["cheapest"] = row.get("cheapest")
         p14a = row.get("paragraph_14a_eur")
         out["paragraph_14a_eur"] = None if p14a is None else round(float(p14a), 2)
@@ -499,6 +521,7 @@ class WallboxSensor(_Base):
             "week": snap.get("week") or {},
             "month": snap.get("month") or {},
             "year": snap.get("year") or {},
+            "total": snap.get("total") or {},
         }
         out = {
             "note": (

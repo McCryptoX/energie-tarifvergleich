@@ -147,6 +147,22 @@ def main():
         )
         check(month["days_complete"] == 1 and month["days_incomplete"] == 1, "month separates complete and incomplete days")
 
+        partial_daily = store.get_daily(partial_day)
+        total_pair = C.aggregate_total(
+            [daily, partial_daily],
+            {"local_start": full_rows[0]["local_start"]},
+            partial_day,
+        )
+        check(total_pair["perfect_days"] == 1, "lifetime Perfect excludes an incomplete day")
+        check(
+            abs(
+                total_pair["potential_eur"]
+                - (daily["cost_dynamic_modul3"] - daily["cost_dynamic_perfect"])
+            )
+            < 1e-6,
+            "lifetime Perfect potential compares the same complete daily basis only",
+        )
+
         before_kwh = daily["grid_import_kwh"]
         before_heat = daily["energy_cost_octopus_heat"]
         cfg2 = copy.deepcopy(cfg)
@@ -176,6 +192,50 @@ def main():
         )
         unchanged = C.apply_tariff_config_change(store, cfg2, "new-hash", "new-hash")
         check(unchanged == 0, "same config hash does not reprice again")
+
+        lifetime_now = datetime(2026, 8, 21, 12, 0, tzinfo=T.TZ)
+        lifetime = C.snapshot(store, lifetime_now, cfg2)["total"]
+        all_days = store.sum_daily_range(orphan, partial_day)
+        check(lifetime is not None, "lifetime snapshot exists when measured intervals exist")
+        check(
+            lifetime["period_start"] == orphan.isoformat()
+            and lifetime["period_end"] == partial_day.isoformat(),
+            "lifetime range starts at the first measured day and ends today",
+        )
+        check(
+            str(lifetime["data_from"]).startswith(orphan.isoformat()),
+            "lifetime exposes the exact first measured slot",
+        )
+        check(
+            lifetime["days_with_data"] == 3 and lifetime["days_expected"] == 3,
+            "lifetime covers all daily rows across the measured range",
+        )
+        check(
+            abs(
+                lifetime["cost_octopus_heat"]
+                - sum(float(row["cost_octopus_heat"]) for row in all_days)
+            )
+            < 1e-6,
+            "lifetime Heat total is the direct sum of the common daily basis",
+        )
+        broken = dict(store.get_daily(partial_day))
+        broken["energy_cost_dynamic"] = None
+        broken["energy_cost_dynamic_modul3"] = None
+        broken["cost_dynamic"] = None
+        broken["cost_dynamic_modul3"] = None
+        broken["price_intervals_missing"] = 1
+        store.upsert_daily(broken)
+        incomplete_total = C.snapshot(store, lifetime_now, cfg2)["total"]
+        check(
+            incomplete_total["cost_dynamic"] is None
+            and incomplete_total["cost_dynamic_modul3"] is None,
+            "one missing price keeps both lifetime dynamic totals unavailable",
+        )
+        check(
+            incomplete_total["cost_octopus_heat"] is not None
+            and C.period_ranking_complete(incomplete_total, period="total") is False,
+            "fixed lifetime totals remain visible while incomplete ranking stays closed",
+        )
         check(
             C.period_ranking_complete(
                 {

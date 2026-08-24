@@ -1,5 +1,15 @@
 # Versionsverlauf (Changelog)
 
+## 0.1.8 — 2026-08-24
+
+- **Gesamtvergleich:** Neuer, migrationsfreier Sensor `sensor.tarifvergleich_gesamt` summiert alle vorhandenen Messdaten ab dem ersten gültigen Viertelstundenwert.
+- **Strenge Vergleichsbasis:** Fehlende Tage, Messwerte oder Börsenpreise sperren die Rangfolge; dynamische Teilsummen werden nicht als vollständiges Ergebnis ausgegeben.
+- **Perfect/C2:** Die theoretische Untergrenze bleibt auf vollständig bepreiste Tage und exakt dieselbe Ist-Tagesbasis begrenzt.
+- **Attribut-Sicherheit:** Perfect erhält keinen irreführenden Delta-vs-Heat-Wert auf unterschiedlicher Tagesbasis; Coverage-Durchschnittswerte verlangen auch vollständige Kalendertage.
+- **Dashboard:** Langzeitvergleich wird zur Hauptansicht; Detailkosten bleiben als Arbeit, Grund/Fix, §14a und Gesamt getrennt, bei deutlich weniger Karten und Text.
+- **Perfect-Anzeige:** Übersicht zeigt bei Perfect zusätzlich „Ist gleiche Tage“, damit die Untergrenze nicht mit dem vollen Perioden-Ist verglichen wird.
+- **Verlauf:** Ampel (heutiger kWh-Anteil in Heat-NT bzw. günstigstem Drittel) und 1-/2-/3-h-Fenster sitzen kompakt auf dem Verlauf-Tab, nicht auf der Langzeit-Übersicht. Nur Anzeige, keine Steuerung.
+
 ## 0.1.7 — 2026-08-23
 
 - **Tesla Wall Connector Baseline-Sicherheit:** Wenn beim ersten Start noch kein Netzbezug vorliegt, rückt `last_tesla` nicht vor, ohne dass das Delta als ausstehend (`pending`) gebucht wird.
@@ -43,4 +53,3 @@
 - **Nord Pool Normalisierung:** Automatische Umrechnung von `EUR/MWh` in `EUR/kWh`.
 - **UTC-Raster & Asynchronität:** Exakte Buchung geschlossener 15-Minuten-UTC-Slots mit Thread-Locks.
 - **Tibber-Aufschlag:** Standardmäßiger Aufschlag von 2,15 ct/kWh brutto integriert.
-

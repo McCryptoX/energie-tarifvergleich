@@ -56,7 +56,7 @@ Diese Datei dient als **verbindlicher Leitfaden für KI-Assistenten**, die diese
 │       ├── collector.py                # 15-Min-Erfassung, Lückenreparatur & Aggregate
 │       └── sensor.py                   # Home Assistant Sensoren & Registry-Migration
 ├── dashboards/
-│   └── energie_tarifvergleich.yaml     # Lovelace UI Dashboard (3 Tabs: Übersicht, Preise, Details)
+│   └── energie_tarifvergleich.yaml     # Lovelace UI Dashboard (3 Tabs: Übersicht, Verlauf, Details)
 ├── energy_tariff_compare/
 │   ├── tariffs.example.yaml            # Vorlage für eigene Stromtarife
 │   ├── scripts/

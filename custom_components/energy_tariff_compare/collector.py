@@ -446,7 +446,7 @@ def period_ranking_complete(row: dict | None, *, period: str) -> bool:
         return False
     if int(row.get("price_intervals_missing") or 0) != 0:
         return False
-    if period in {"month", "year"}:
+    if period in {"month", "year", "total"}:
         days_with = row.get("days_with_data")
         days_expected = row.get("days_expected")
         if days_with is None or days_expected is None:
@@ -1139,6 +1139,126 @@ def rebuild_year(store: Store, cfg: dict, day: date) -> dict:
     return payload
 
 
+def aggregate_total(
+    days: list[dict], first_measurement: dict | None, today: date
+) -> dict | None:
+    """Aggregate every measured day without adding a persistent lifetime table."""
+    if not days or not first_measurement or not first_measurement.get("local_start"):
+        return None
+    try:
+        first_day = date.fromisoformat(str(first_measurement["local_start"])[:10])
+    except ValueError:
+        return None
+
+    energy = _sum(days, "grid_import_kwh")
+    tesla_energy = _sum(days, "tesla_kwh")
+    tesla_costs = {tid: _sum_if_complete(days, f"tesla_cost_{tid}") for tid in COST_KEYS}
+    energy_costs = {tid: _sum_if_complete(days, f"energy_cost_{tid}") for tid in COST_KEYS}
+    standing = {tid: _sum_if_complete(days, f"standing_cost_{tid}") for tid in COST_KEYS}
+    costs = {tid: _sum_if_complete(days, f"cost_{tid}") for tid in COST_KEYS}
+    complete_days = [
+        row
+        for row in days
+        if int(row.get("intervals_due") or 0) == int(row.get("intervals_expected") or -1)
+        and int(row.get("intervals_missing") or 0) == 0
+        and int(row.get("price_intervals_missing") or 0) == 0
+    ]
+    paired_m3 = [
+        row
+        for row in complete_days
+        if row.get("cost_dynamic_perfect") is not None
+        and row.get("cost_dynamic_modul3") is not None
+    ]
+    paired_flat = [
+        row
+        for row in complete_days
+        if row.get("cost_dynamic_flat_perfect") is not None
+        and row.get("cost_dynamic") is not None
+    ]
+    perfect = _round_or_none(
+        sum(float(row["cost_dynamic_perfect"]) for row in paired_m3) if paired_m3 else None
+    )
+    perfect_flat = _round_or_none(
+        sum(float(row["cost_dynamic_flat_perfect"]) for row in paired_flat)
+        if paired_flat
+        else None
+    )
+    paired_actual_m3 = (
+        sum(float(row["cost_dynamic_modul3"]) for row in paired_m3) if paired_m3 else None
+    )
+    paired_actual_flat = (
+        sum(float(row["cost_dynamic"]) for row in paired_flat) if paired_flat else None
+    )
+    potential = _round_or_none(
+        paired_actual_m3 - float(perfect)
+        if paired_actual_m3 is not None and perfect is not None
+        else None
+    )
+    potential_dynamic = _round_or_none(
+        paired_actual_flat - float(perfect_flat)
+        if paired_actual_flat is not None and perfect_flat is not None
+        else None
+    )
+    days_with_data = len(days)
+    days_complete = len(complete_days)
+    days_incomplete = max(0, days_with_data - days_complete)
+    days_expected = (today - first_day).days + 1
+    payload = {
+        "period_start": first_day.isoformat(),
+        "period_end": today.isoformat(),
+        "data_from": first_measurement.get("local_start"),
+        "grid_import_kwh": round(energy, 4),
+        "tesla_kwh": round(tesla_energy, 4),
+        **{f"tesla_cost_{tid}": _round_or_none(tesla_costs[tid]) for tid in COST_KEYS},
+        "days_ok": days_complete,
+        "days_with_data": days_with_data,
+        "days_complete": days_complete,
+        "days_incomplete": days_incomplete,
+        "days_expected": days_expected,
+        "perfect_days": min(len(paired_m3), len(paired_flat)),
+        "intervals_ok": sum(int(row.get("intervals_ok") or 0) for row in days),
+        "intervals_due": sum(int(row.get("intervals_due") or 0) for row in days),
+        "intervals_missing": sum(int(row.get("intervals_missing") or 0) for row in days),
+        "intervals_future": sum(int(row.get("intervals_future") or 0) for row in days),
+        "price_intervals_missing": sum(
+            int(row.get("price_intervals_missing") or 0) for row in days
+        ),
+        "data_through": max(
+            (row.get("data_through") for row in days if row.get("data_through")),
+            default=None,
+        ),
+        **{f"energy_cost_{tid}": _round_or_none(energy_costs[tid]) for tid in COST_KEYS},
+        **{f"standing_cost_{tid}": _round_or_none(standing[tid], 8) for tid in COST_KEYS},
+        "paragraph_14a_eur": _round_or_none(
+            _sum_if_complete(days, "paragraph_14a_eur"), 8
+        ),
+        **{f"cost_{tid}": _round_or_none(costs[tid]) for tid in COST_KEYS},
+        "cost_dynamic_perfect": perfect,
+        "cost_dynamic_flat_perfect": perfect_flat,
+        "potential_eur": potential,
+        "potential_dynamic_eur": potential_dynamic,
+        "potential_pct": (
+            None
+            if potential is None or not paired_actual_m3
+            else round(100.0 * potential / paired_actual_m3, 1)
+        ),
+        "quality": (
+            f"{days_complete} vollständig · {days_incomplete} unvollständig · "
+            f"{days_with_data} von {days_expected} Tagen mit Daten"
+        ),
+        "updated_at": datetime.now(T.TZ).isoformat(),
+    }
+    named = {tid: payload.get(f"cost_{tid}") for tid in COST_KEYS}
+    payload["cheapest"] = (
+        min(named, key=lambda key: float(named[key]))
+        if period_ranking_complete(payload, period="total")
+        and energy >= 1.0
+        and all(value is not None for value in named.values())
+        else None
+    )
+    return payload
+
+
 def expected_slot_keys(day: date) -> list[str]:
     """UTC interval_start keys for every local 15-minute slot of the day."""
     expected = T.expected_intervals(day)
@@ -1441,6 +1561,7 @@ def snapshot(store: Store, now: datetime, cfg: dict | None = None) -> dict:
     y, m = [int(x) for x in selected.split("-")]
     monday = date.fromisoformat(str(rows["week_start"]))
     week_days = rows.get("week_days") or []
+    total = aggregate_total(rows.get("all_days") or [], rows.get("first_measurement"), today)
     week = {
         "week_start": monday.isoformat(),
         "week_end": today.isoformat(),
@@ -1470,6 +1591,7 @@ def snapshot(store: Store, now: datetime, cfg: dict | None = None) -> dict:
         "week": week,
         "month": _asdict(rows["month"]),
         "year": _asdict(rows["year"]),
+        "total": total,
         "latest_interval": _asdict(rows["latest_interval"]),
         "selected_month": selected,
         "selected_label": f"{m:02d}/{y}",

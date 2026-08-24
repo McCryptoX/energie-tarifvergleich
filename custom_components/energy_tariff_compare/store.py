@@ -157,6 +157,15 @@ COST_COLS = (
     "dynamic_modul3",
 )
 
+MEASURED_INTERVAL_QUALITIES = (
+    "ok",
+    "delayed",
+    "incomplete",
+    "backfilled",
+    "backfilled_first",
+    "repaired",
+)
+
 INTERVAL_COLS = (
     "interval_start",
     "interval_end",
@@ -735,6 +744,27 @@ class Store:
                     (monday.isoformat(), today.isoformat()),
                 )
             ]
+            quality_marks = ",".join("?" * len(MEASURED_INTERVAL_QUALITIES))
+            first_measurement_row = conn.execute(
+                "SELECT interval_start, interval_end, local_start "
+                "FROM intervals WHERE grid_import_kwh IS NOT NULL "
+                f"AND quality IN ({quality_marks}) "
+                "ORDER BY interval_start LIMIT 1",
+                MEASURED_INTERVAL_QUALITIES,
+            ).fetchone()
+            first_measurement = (
+                None if first_measurement_row is None else dict(first_measurement_row)
+            )
+            all_days = []
+            if first_measurement is not None:
+                first_day = str(first_measurement["local_start"])[:10]
+                all_days = [
+                    dict(row)
+                    for row in conn.execute(
+                        "SELECT * FROM daily WHERE day>=? AND day<=? ORDER BY day",
+                        (first_day, today.isoformat()),
+                    )
+                ]
             return {
                 "today": one("SELECT * FROM daily WHERE day=?", (today.isoformat(),)),
                 "yesterday": one("SELECT * FROM daily WHERE day=?", (yesterday.isoformat(),)),
@@ -748,6 +778,8 @@ class Store:
                 "selected_month": selected_month,
                 "week_days": week_days,
                 "week_start": monday.isoformat(),
+                "first_measurement": first_measurement,
+                "all_days": all_days,
                 "tesla_count_started_utc": None if tesla_started is None else tesla_started["value"],
                 "tesla_pending_kwh": None if tesla_pending is None else tesla_pending["value"],
             }

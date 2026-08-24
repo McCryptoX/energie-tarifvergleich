@@ -9,6 +9,15 @@
     "abort": {
       "already_configured": "Die Integration ist bereits eingerichtet."
     }
+  },
+  "entity": {
+    "sensor": {
+      "today": { "name": "Heute" },
+      "yesterday": { "name": "Gestern" },
+      "month": { "name": "Monat" },
+      "year": { "name": "Jahr" },
+      "total": { "name": "Gesamt" },
+      "wallbox": { "name": "Wallbox-Laden" }
+    }
   }
 }
-

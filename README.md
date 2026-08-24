@@ -39,8 +39,8 @@ Discovergy / Inexogy Zähler + Nord Pool Spot GER
                ▼  alle 15 Minuten (Minute 00/15/30/45 + 20s)
     Lokale SQLite-Datenbank (energy_tariff_compare/data/energy.sqlite)
                │
-               ▼  Tages-, Monats- und Jahresaggregate
-    Home Assistant Sensoren & Lovelace Dashboard (3 Tabs)
+               ▼  Tages-, Monats-, Jahres- und Gesamtaggregate
+    Home Assistant Sensoren & Lovelace Dashboard (3 Tabs: Übersicht, Verlauf, Details)
 ```
 
 - **Keine Cloud-Abhängigkeit:** Berechnungen laufen zu 100 % lokal auf deinem Home Assistant.
@@ -53,7 +53,7 @@ Discovergy / Inexogy Zähler + Nord Pool Spot GER
 - **Home Assistant OS** (Version 2026.x)
 - **Offizielle [Nord Pool Integration](https://www.home-assistant.io/integrations/nordpool/)** (Bereich `GER`, Währung `EUR`)
 - **Smart Meter Sensor** mit `state_class: total_increasing` für den Netzbezug (z. B. Discovergy / Inexogy)
-- *Optional:* Tesla Wall Connector (Sensor für Lebensdauer-Energie), Anker Solix (Sensoren für die Live-Visualisierung)
+- *Optional:* Tesla Wall Connector (Sensor für Lebensdauer-Energie; im Dashboard nur als Bonus)
 
 ---
 
