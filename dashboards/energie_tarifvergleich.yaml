@@ -14,48 +14,28 @@ views:
             heading: Arbeitspreise jetzt
             heading_style: title
           - type: grid
-            columns: 3
+            columns: 5
             square: false
             cards:
               - type: custom:mushroom-template-card
                 entity: sensor.tarifvergleich_preis_heat
-                primary: Heat
-                secondary: "{% if is_number(states('sensor.tarifvergleich_preis_heat')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_heat')|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}"
+                primary: "{% if is_number(states('sensor.tarifvergleich_preis_heat')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_heat')|float) | replace('.', ',') }}{% else %}–{% endif %}"
+                secondary: Heat · ct/kWh
                 icon: mdi:file-sign
                 layout: vertical
+                multiline_secondary: true
                 tap_action:
                   action: more-info
                 icon_color: >
                   {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
                   {{ 'green' if ids and 'octopus_heat' in ids else 'cyan' }}
               - type: custom:mushroom-template-card
-                entity: sensor.tarifvergleich_preis_loyalty
-                primary: Loyalty
-                secondary: "{% if is_number(states('sensor.tarifvergleich_preis_loyalty')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_loyalty')|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}"
-                icon: mdi:star-outline
-                layout: vertical
-                tap_action:
-                  action: more-info
-                icon_color: >
-                  {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
-                  {{ 'green' if ids and 'octopus_heat_loyalty' in ids else 'grey' }}
-              - type: custom:mushroom-template-card
-                entity: sensor.tarifvergleich_preis_fix
-                primary: Fixer Tarif
-                secondary: "{% if is_number(states('sensor.tarifvergleich_preis_fix')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_fix')|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}"
-                icon: mdi:lock-outline
-                layout: vertical
-                tap_action:
-                  action: more-info
-                icon_color: >
-                  {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
-                  {{ 'green' if ids and 'fix_tarif' in ids else 'grey' }}
-              - type: custom:mushroom-template-card
                 entity: sensor.tarifvergleich_preis_dynamisch
-                primary: Dynamisch
-                secondary: "{% if is_number(states('sensor.tarifvergleich_preis_dynamisch')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_dynamisch')|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}"
+                primary: "{% if is_number(states('sensor.tarifvergleich_preis_dynamisch')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_dynamisch')|float) | replace('.', ',') }}{% else %}–{% endif %}"
+                secondary: Dynamisch · ct/kWh
                 icon: mdi:chart-timeline-variant
                 layout: vertical
+                multiline_secondary: true
                 tap_action:
                   action: more-info
                 icon_color: >
@@ -63,15 +43,40 @@ views:
                   {{ 'green' if ids and 'dynamic' in ids else 'indigo' }}
               - type: custom:mushroom-template-card
                 entity: sensor.tarifvergleich_preis_modul3
-                primary: + Modul 3
-                secondary: "{% if is_number(states('sensor.tarifvergleich_preis_modul3')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_modul3')|float) | replace('.', ',') }} ct/kWh{% else %}–{% endif %}"
+                primary: "{% if is_number(states('sensor.tarifvergleich_preis_modul3')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_modul3')|float) | replace('.', ',') }}{% else %}–{% endif %}"
+                secondary: Modul 3 · ct/kWh
                 icon: mdi:sine-wave
                 layout: vertical
+                multiline_secondary: true
                 tap_action:
                   action: more-info
                 icon_color: >
                   {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
                   {{ 'green' if ids and 'dynamic_modul3' in ids else 'purple' }}
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_preis_loyalty
+                primary: "{% if is_number(states('sensor.tarifvergleich_preis_loyalty')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_loyalty')|float) | replace('.', ',') }}{% else %}–{% endif %}"
+                secondary: Loyalty · ct/kWh
+                icon: mdi:star-outline
+                layout: vertical
+                multiline_secondary: true
+                tap_action:
+                  action: more-info
+                icon_color: >
+                  {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
+                  {{ 'green' if ids and 'octopus_heat_loyalty' in ids else 'grey' }}
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_preis_fix
+                primary: "{% if is_number(states('sensor.tarifvergleich_preis_fix')) %}{{ '%.2f'|format(states('sensor.tarifvergleich_preis_fix')|float) | replace('.', ',') }}{% else %}–{% endif %}"
+                secondary: Fix · ct/kWh
+                icon: mdi:lock-outline
+                layout: vertical
+                multiline_secondary: true
+                tap_action:
+                  action: more-info
+                icon_color: >
+                  {% set ids = state_attr('sensor.tarifvergleich_preise', 'cheapest_current_ids') or [] %}
+                  {{ 'green' if ids and 'fix_tarif' in ids else 'grey' }}
           - type: custom:mushroom-chips-card
             alignment: justify
             chips:
@@ -79,9 +84,7 @@ views:
                 icon: mdi:swap-horizontal
                 content: >
                   {% set spot = states('sensor.nord_pool_ger_aktueller_preis') %}
-                  {% set slot_end = state_attr('sensor.tarifvergleich_dynamisch_ct', 'slot_end') %}
-                  {% set ts = as_timestamp(slot_end, none) if slot_end else none %}
-                  {% if is_number(spot) %}Spot {{ '%.3f'|format(spot|float * 100) | replace('.', ',') }} ct netto{% else %}Spot –{% endif %}{% if ts is number %} · {{ (ts - 900) | timestamp_custom('%H:%M', true) }}–{{ ts | timestamp_custom('%H:%M', true) }}{% endif %}
+                  {% if is_number(spot) %}Spot {{ '%.2f'|format(spot|float * 100) | replace('.', ',') }} ct{% else %}Spot –{% endif %}
               - type: template
                 icon: mdi:weather-night
                 icon_color: >
@@ -89,214 +92,135 @@ views:
                   {{ 'green' if slot == 'nt' else 'red' if slot == 'ht' else 'amber' }}
                 content: >
                   {% set slot = state_attr('sensor.tarifvergleich_preise', 'modul3_slot') %}
-                  {% set hint = state_attr('sensor.tarifvergleich_preise', 'modul3_hint') %}
-                  {% if slot == 'nt' %}Modul 3 NT 00–07
-                  {% elif slot == 'ht' %}Modul 3 HT 15–20
-                  {% elif slot == 'st' %}Modul 3 ST 07–15 / 20–24
+                  {% if slot == 'nt' %}NT 00–07
+                  {% elif slot == 'ht' %}HT 15–20
+                  {% elif slot == 'st' %}ST 07–15 / 20–24
                   {% else %}Modul 3 –{% endif %}
               - type: template
                 icon: mdi:flash
-                icon_color: >
-                  {% set q = states('sensor.tarifvergleich_viertelstunde_kwh') %}
-                  {{ 'green' if is_number(q) else 'red' }}
                 content: >
                   {% set q = states('sensor.tarifvergleich_viertelstunde_kwh') %}
-                  {% set miss = state_attr('sensor.tarifvergleich_heute', 'intervals_missing') %}
-                  {% if is_number(q) %}15 min {{ '%.3f'|format(q|float) | replace('.', ',') }} kWh{% else %}15 min –{% endif %}{% if miss is number and miss|int > 0 %} · {{ miss|int }} fehlend{% endif %}
+                  {% if is_number(q) %}{{ '%.2f'|format(q|float) | replace('.', ',') }} kWh / 15 min{% else %}15 min –{% endif %}
+              - type: template
+                icon: mdi:traffic-light
+                icon_color: >
+                  {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_octopus_heat') %}
+                  {{ 'green' if p is number and p >= 0.40 else 'amber' if p is number and p >= 0.25 else 'red' if p is number else 'grey' }}
+                content: >
+                  {% set h = state_attr('sensor.tarifvergleich_heute', 'hit_share_octopus_heat') %}
+                  {% set d = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic') %}
+                  {% set m = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic_modul3') %}
+                  Heat {% if h is number %}{{ (h*100)|round(0)|int }} %{% else %}–{% endif %}
+                  · Dyn {% if d is number %}{{ (d*100)|round(0)|int }} %{% else %}–{% endif %}
+                  · M3 {% if m is number %}{{ (m*100)|round(0)|int }} %{% else %}–{% endif %}
           - type: markdown
             content: >
-              Grün = günstigster **Arbeitspreis** gerade (ohne Grundgebühr). Heat = Vertrag.
-              Pokale = günstigste **Gesamtkosten** inkl. Grund/Fix.
-              Reiter oben: **Übersicht** · **Preise** · **Details**.
+              Große Zahl = Arbeitspreis jetzt. Grün = günstigster Slot.
+              Ampel = Anteil der heutigen kWh in günstigen Fenstern (Heat NT 02–06/12–16).
               {% set err = state_attr('sensor.tarifvergleich_preise', 'collector_error') %}
               {% if err %} **Collector:** {{ err }}{% endif %}
 
+      - type: grid
+        cards:
           - type: heading
-            heading: Haus jetzt
-            heading_style: subtitle
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-              - type: custom:mushroom-template-card
-                primary: Anker Solix
-                secondary: >
-                  {% set pv = states('sensor.anker_solix_solarbank_4_e5000_pro_211_solarstrom') %}
-                  {% set load = states('sensor.anker_solix_solarbank_4_e5000_pro_211_startseite_last') %}
-                  {% set soc = states('sensor.anker_solix_solarbank_4_e5000_pro_211_soc') %}
-                  {% if pv in ['unknown', 'unavailable'] and load in ['unknown', 'unavailable'] %}keine Daten
-                  {% else %}PV {% if is_number(pv) %}{{ pv|float|round(0)|int }} W{% else %}–{% endif %}
-                  · Last {% if is_number(load) %}{{ load|float|round(0)|int }} W{% else %}–{% endif %}
-                  · SOC {% if is_number(soc) %}{{ soc|float|round(0)|int }} %{% else %}–{% endif %}{% endif %}
-                icon: mdi:solar-power-variant
-                icon_color: >
-                  {% set pv = states('sensor.anker_solix_solarbank_4_e5000_pro_211_solarstrom') %}
-                  {{ 'amber' if is_number(pv) and pv|float >= 50 else 'grey' }}
-                tap_action:
-                  action: more-info
-                entity: sensor.anker_solix_solarbank_4_e5000_pro_211_soc
-              - type: custom:mushroom-template-card
-                entity: sensor.tesla_wall_connector_status
-                primary: >
-                  {% set st = states('sensor.tesla_wall_connector_status') %}
-                  {% set labels = {
-                    'charging': 'Wallbox lädt',
-                    'charging_finished': 'Ladevorgang fertig',
-                    'connected': 'Fahrzeug verbunden',
-                    'not_connected': 'Kein Fahrzeug',
-                    'ready': 'Wallbox bereit',
-                    'waiting_car': 'Wartet auf Auto',
-                    'charging_reduced': 'Laden reduziert',
-                    'negotiating': 'Handshake',
-                    'booting': 'Startet',
-                    'error': 'Wallbox-Fehler'
-                  } %}
-                  {{ labels[st] if st in labels else 'Wallbox' }}
-                secondary: >
-                  {% set p = states('sensor.tesla_wall_connector_gesamtleistung') %}
-                  {% set w = states('sensor.tarifvergleich_wallbox') %}
-                  {% if is_number(p) %}{{ '%.2f'|format(p|float) | replace('.', ',') }} kW{% else %}– kW{% endif %}
-                  · heute {% if is_number(w) %}{{ '%.2f'|format(w|float) | replace('.', ',') }}{% else %}–{% endif %} kWh
-                icon: mdi:ev-station
-                icon_color: >
-                  {% set st = states('sensor.tesla_wall_connector_status') %}
-                  {{ 'green' if st in ['charging', 'charging_reduced'] else 'red' if st == 'error' else 'grey' }}
-                tap_action:
-                  action: more-info
-          - type: custom:mushroom-chips-card
-            alignment: justify
-            chips:
-              - type: entity
-                entity: sensor.anker_solix_solarbank_4_e5000_pro_211_netzbezugsleistung
-                icon: mdi:transmission-tower-import
-                content_info: state
-                name: Netz Bank
-              - type: entity
-                entity: binary_sensor.tesla_wall_connector_fahrzeug_verbunden
-                icon: mdi:car-electric
-                content_info: state
-                name: Auto
+            heading: Wann einschalten
+            heading_style: title
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_preise
+            primary: "{{ state_attr('sensor.tarifvergleich_preise', 'heat_span') or '–' }}"
+            secondary: >
+              {% set w = state_attr('sensor.tarifvergleich_preise', 'heat_when') %}
+              Heat NT 02–06 / 12–16{% if w %} · {{ w }}{% endif %}
+            icon: mdi:clock-outline
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: cyan
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_preise
+            primary: "{{ state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h') or '–' }}"
+            secondary: >
+              {% set w = state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h_when') %}
+              {% set c = state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h_ct') %}
+              Dynamisch 2 h{% if w %} · {{ w }}{% endif %}{% if c is number %} · {{ '%.1f'|format(c) | replace('.', ',') }} ct{% endif %}
+            icon: mdi:dishwasher
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: indigo
+          - type: custom:mushroom-template-card
+            entity: sensor.tarifvergleich_preise
+            primary: "{{ state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h') or '–' }}"
+            secondary: >
+              {% set w = state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h_when') %}
+              {% set c = state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h_ct') %}
+              Modul 3 2 h{% if w %} · {{ w }}{% endif %}{% if c is number %} · {{ '%.1f'|format(c) | replace('.', ',') }} ct{% endif %}
+            icon: mdi:washing-machine
+            multiline_secondary: true
+            tap_action:
+              action: more-info
+            icon_color: purple
           - type: markdown
             content: >
-              Anker und Wallbox nur Anzeige. Abrechnung = Inexogy-Netzbezug.
+              {% set e = 'sensor.tarifvergleich_preise' %}
+              1 h Dyn {{ state_attr(e, 'run_dynamic_1h_when') }} {{ state_attr(e, 'run_dynamic_1h') or '–' }}
+              · M3 {{ state_attr(e, 'run_modul3_1h_when') }} {{ state_attr(e, 'run_modul3_1h') or '–' }}.
+              Nur Anzeige.
 
       - type: grid
-        column_span: 2
         cards:
-          - type: grid
-            columns: 1
-            square: false
-            cards:
-              - type: heading
-                heading: Heute · günstige Zeiten
-                heading_style: title
-              - type: grid
-                columns: 3
-                square: false
-                cards:
-                  - type: custom:mushroom-template-card
-                    entity: sensor.tarifvergleich_heute
-                    primary: >
-                      {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_octopus_heat') %}
-                      {% if p is number %}{{ (p * 100)|round(0)|int }} %{% else %}–{% endif %}
-                    secondary: Heat · NT 02–06 / 12–16
-                    icon: mdi:traffic-light
-                    layout: vertical
-                    tap_action:
-                      action: more-info
-                    icon_color: >
-                      {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_octopus_heat') %}
-                      {{ 'green' if p is number and p >= 0.40 else 'amber' if p is number and p >= 0.25 else 'red' if p is number else 'grey' }}
-                  - type: custom:mushroom-template-card
-                    entity: sensor.tarifvergleich_heute
-                    primary: >
-                      {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic') %}
-                      {% if p is number %}{{ (p * 100)|round(0)|int }} %{% else %}–{% endif %}
-                    secondary: Dynamisch · günstigstes Drittel
-                    icon: mdi:traffic-light
-                    layout: vertical
-                    tap_action:
-                      action: more-info
-                    icon_color: >
-                      {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic') %}
-                      {{ 'green' if p is number and p >= 0.40 else 'amber' if p is number and p >= 0.25 else 'red' if p is number else 'grey' }}
-                  - type: custom:mushroom-template-card
-                    entity: sensor.tarifvergleich_heute
-                    primary: >
-                      {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic_modul3') %}
-                      {% if p is number %}{{ (p * 100)|round(0)|int }} %{% else %}–{% endif %}
-                    secondary: Modul 3 · günstigstes Drittel
-                    icon: mdi:traffic-light
-                    layout: vertical
-                    tap_action:
-                      action: more-info
-                    icon_color: >
-                      {% set p = state_attr('sensor.tarifvergleich_heute', 'hit_share_dynamic_modul3') %}
-                      {{ 'green' if p is number and p >= 0.40 else 'amber' if p is number and p >= 0.25 else 'red' if p is number else 'grey' }}
-              - type: markdown
-                content: "Grün ab 40 % · Gelb ab 25 % · Rot darunter. Anteil der bisherigen Netz-kWh."
-
-      - type: grid
-        column_span: 2
-        cards:
-          - type: grid
-            columns: 1
-            square: false
-            cards:
-              - type: heading
-                heading: Wann einschalten
-                heading_style: title
-              - type: grid
-                columns: 3
-                square: false
-                cards:
-                  - type: custom:mushroom-template-card
-                    entity: sensor.tarifvergleich_preise
-                    primary: "{{ state_attr('sensor.tarifvergleich_preise', 'heat_span') or '–' }}"
-                    secondary: >
-                      {% set w = state_attr('sensor.tarifvergleich_preise', 'heat_when') %}
-                      Heat NT{% if w %} · {{ w }}{% endif %}
-                    icon: mdi:clock-outline
-                    layout: vertical
-                    tap_action:
-                      action: more-info
-                    icon_color: cyan
-                  - type: custom:mushroom-template-card
-                    entity: sensor.tarifvergleich_preise
-                    primary: "{{ state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h') or '–' }}"
-                    secondary: >
-                      {% set w = state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h_when') %}
-                      {% set c = state_attr('sensor.tarifvergleich_preise', 'run_dynamic_2h_ct') %}
-                      Dynamisch · 2 h{% if w %} · {{ w }}{% endif %}{% if c is number %} · {{ '%.1f'|format(c) | replace('.', ',') }} ct{% endif %}
-                    icon: mdi:dishwasher
-                    layout: vertical
-                    tap_action:
-                      action: more-info
-                    icon_color: indigo
-                  - type: custom:mushroom-template-card
-                    entity: sensor.tarifvergleich_preise
-                    primary: "{{ state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h') or '–' }}"
-                    secondary: >
-                      {% set w = state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h_when') %}
-                      {% set c = state_attr('sensor.tarifvergleich_preise', 'run_modul3_2h_ct') %}
-                      Modul 3 · 2 h{% if w %} · {{ w }}{% endif %}{% if c is number %} · {{ '%.1f'|format(c) | replace('.', ',') }} ct{% endif %}
-                    icon: mdi:washing-machine
-                    layout: vertical
-                    tap_action:
-                      action: more-info
-                    icon_color: purple
-              - type: markdown
-                content: >
-                  {% set e = 'sensor.tarifvergleich_preise' %}
-                  {% macro w(tid, h) -%}
-                  {%- set s = state_attr(e, 'run_' ~ tid ~ '_' ~ h ~ 'h') -%}
-                  {%- set d = state_attr(e, 'run_' ~ tid ~ '_' ~ h ~ 'h_when') -%}
-                  {%- set c = state_attr(e, 'run_' ~ tid ~ '_' ~ h ~ 'h_ct') -%}
-                  {%- if s -%}{{ d }} {{ s }}{% if c is number %} ({{ '%.1f'|format(c) | replace('.', ',') }} ct){% endif %}{%- else -%}–{%- endif -%}
-                  {%- endmacro %}
-                  **1 h** Dyn {{ w('dynamic', 1) }} · M3 {{ w('modul3', 1) }}
-                  · **3 h** Dyn {{ w('dynamic', 3) }} · M3 {{ w('modul3', 3) }}.
-                  Heat-NT 02–06 und 12–16, Hochlast 18–21 meiden. Nur Anzeige, keine Steuerung.
+          - type: heading
+            heading: Haus
+            heading_style: title
+          - type: custom:mushroom-template-card
+            primary: Anker Solix
+            secondary: >
+              {% set pv = states('sensor.anker_solix_solarbank_4_e5000_pro_211_solarstrom') %}
+              {% set load = states('sensor.anker_solix_solarbank_4_e5000_pro_211_startseite_last') %}
+              {% set soc = states('sensor.anker_solix_solarbank_4_e5000_pro_211_soc') %}
+              {% if pv in ['unknown', 'unavailable'] and load in ['unknown', 'unavailable'] %}keine Daten
+              {% else %}PV {% if is_number(pv) %}{{ pv|float|round(0)|int }} W{% else %}–{% endif %}
+              · Last {% if is_number(load) %}{{ load|float|round(0)|int }} W{% else %}–{% endif %}
+              · SOC {% if is_number(soc) %}{{ soc|float|round(0)|int }} %{% else %}–{% endif %}{% endif %}
+            icon: mdi:solar-power-variant
+            multiline_secondary: true
+            icon_color: >
+              {% set pv = states('sensor.anker_solix_solarbank_4_e5000_pro_211_solarstrom') %}
+              {{ 'amber' if is_number(pv) and pv|float >= 50 else 'grey' }}
+            tap_action:
+              action: more-info
+            entity: sensor.anker_solix_solarbank_4_e5000_pro_211_soc
+          - type: custom:mushroom-template-card
+            entity: sensor.tesla_wall_connector_status
+            primary: >
+              {% set st = states('sensor.tesla_wall_connector_status') %}
+              {% set labels = {
+                'charging': 'Wallbox lädt',
+                'charging_finished': 'Ladevorgang fertig',
+                'connected': 'Fahrzeug verbunden',
+                'not_connected': 'Kein Fahrzeug',
+                'ready': 'Wallbox bereit',
+                'waiting_car': 'Wartet auf Auto',
+                'charging_reduced': 'Laden reduziert',
+                'negotiating': 'Handshake',
+                'booting': 'Startet',
+                'error': 'Wallbox-Fehler'
+              } %}
+              {{ labels[st] if st in labels else 'Wallbox' }}
+            secondary: >
+              {% set p = states('sensor.tesla_wall_connector_gesamtleistung') %}
+              {% set w = states('sensor.tarifvergleich_wallbox') %}
+              {% if is_number(p) %}{{ '%.2f'|format(p|float) | replace('.', ',') }} kW{% else %}– kW{% endif %}
+              · heute {% if is_number(w) %}{{ '%.2f'|format(w|float) | replace('.', ',') }}{% else %}–{% endif %} kWh
+            icon: mdi:ev-station
+            multiline_secondary: true
+            icon_color: >
+              {% set st = states('sensor.tesla_wall_connector_status') %}
+              {{ 'green' if st in ['charging', 'charging_reduced'] else 'red' if st == 'error' else 'grey' }}
+            tap_action:
+              action: more-info
+          - type: markdown
+            content: Anker und Wallbox nur Anzeige. Abrechnung = Netzbezug.
 
       - type: grid
         cards:
@@ -354,11 +278,7 @@ views:
           - type: markdown
             content: >
               {% set hint = state_attr('sensor.tarifvergleich_preise', 'modul3_hint') %}
-              {{ hint or 'Modul 3: NT 00–07 günstiger, HT 15–20 teurer, ST wie Dynamisch.' }}
-              Die **violette Linie** startet erst mit dem Modul-3-Sensor.
-              In der Standardlast (07–15 und 20–24) ist sie **absichtlich gleich** Dynamisch.
-              Nachts 00–07 rund 10 ct günstiger, 15–20 teurer — das steht schon in den
-              Tageskosten, in dieser 24h-Kurve erst nach einer vollen Nacht bzw. HT-Fenster.
+              {{ hint or 'Modul 3: NT 00–07 günstiger, HT 15–20 teurer.' }}
 
       - type: grid
         cards:
@@ -490,38 +410,6 @@ views:
               {% endif %}
               {% endif %}
 
-      - type: grid
-        column_span: 2
-        cards:
-          - type: heading
-            heading: Monat / Jahr / Wallbox
-            heading_style: title
-          - type: markdown
-            content: |
-              {% macro n(v, d=2) -%}
-              {%- if v is number -%}{{ (('%.' ~ d ~ 'f')|format(v)) | replace('.', ',') }}{%- else -%}–{%- endif -%}
-              {%- endmacro %}
-              {% set m = 'sensor.tarifvergleich_monat' %}
-              {% set y = 'sensor.tarifvergleich_jahr' %}
-              {% set w = 'sensor.tarifvergleich_wallbox' %}
-              **{{ state_attr(m, 'selected_label') or 'Monat' }}:** {% if is_number(states(m)) %}{{ '%.2f'|format(states(m)|float) | replace('.', ',') }} kWh{% else %}–{% endif %}
-              · {{ state_attr(m, 'days_complete') or '–' }} vollständig
-              {% if state_attr(m, 'ranking_complete') %}
-              · Gesamt: Heat {{ n(state_attr(m, 'cost_octopus_heat')) }} € · Dynamisch {{ n(state_attr(m, 'cost_dynamic')) }} € · Modul 3 {{ n(state_attr(m, 'cost_dynamic_modul3')) }} €
-              {% else %}
-              · unvollständig (inkl. laufendem Tag)
-              {% endif %}
-
-              **Jahr:** {% if is_number(states(y)) %}{{ '%.2f'|format(states(y)|float) | replace('.', ',') }} kWh{% else %}–{% endif %}
-              · {{ state_attr(y, 'days_complete') or '–' }} vollständig
-              {% if state_attr(y, 'ranking_complete') %}
-              · Gesamt: Heat {{ n(state_attr(y, 'cost_octopus_heat')) }} € · Dynamisch {{ n(state_attr(y, 'cost_dynamic')) }} € · Modul 3 {{ n(state_attr(y, 'cost_dynamic_modul3')) }} €
-              {% else %}
-              · unvollständig (inkl. laufendem Tag)
-              {% endif %}
-
-              **Wallbox heute:** {% if is_number(states(w)) %}{{ '%.3f'|format(states(w)|float) | replace('.', ',') }} kWh{% else %}–{% endif %} (Zählung ab Baseline, nur Arbeitspreis)
-
   - title: Preise
     path: preise
     icon: mdi:chart-line
@@ -533,16 +421,82 @@ views:
         column_span: 2
         cards:
           - type: heading
-            heading: Strompreise über die Zeit
+            heading: Heute · Preise
             heading_style: title
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: custom:mushroom-template-card
+                entity: sensor.nord_pool_ger_aktueller_preis
+                primary: >
+                  {% set s = states('sensor.nord_pool_ger_aktueller_preis') %}
+                  {% if is_number(s) %}{{ '%.2f'|format(s|float * 100) | replace('.', ',') }}{% else %}–{% endif %}
+                secondary: Spot · ct netto
+                icon: mdi:chart-line
+                layout: vertical
+                multiline_secondary: true
+                icon_color: blue
+                tap_action:
+                  action: more-info
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_preise
+                primary: "{{ state_attr('sensor.tarifvergleich_preise', 'today_cheapest_ct') or '–' }}"
+                secondary: >
+                  {% set s = state_attr('sensor.tarifvergleich_preise', 'today_cheapest_span') %}
+                  Günstigster Slot{% if s %} · {{ s }}{% endif %}
+                icon: mdi:arrow-down-bold
+                layout: vertical
+                multiline_secondary: true
+                icon_color: green
+                tap_action:
+                  action: more-info
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_preise
+                primary: "{{ state_attr('sensor.tarifvergleich_preise', 'today_peak_ct') or '–' }}"
+                secondary: >
+                  {% set s = state_attr('sensor.tarifvergleich_preise', 'today_peak_span') %}
+                  Peak heute{% if s %} · {{ s }}{% endif %}
+                icon: mdi:arrow-up-bold
+                layout: vertical
+                multiline_secondary: true
+                icon_color: red
+                tap_action:
+                  action: more-info
+              - type: custom:mushroom-template-card
+                entity: sensor.tarifvergleich_preise
+                primary: >
+                  {% set d = state_attr('sensor.tarifvergleich_preise', 'modul3_nt_delta_net_ct') %}
+                  {% if d is number %}{{ '%+.2f'|format(d) | replace('.', ',') }}{% else %}–{% endif %}
+                secondary: NT vs Flach · ct netto
+                icon: mdi:weather-night
+                layout: vertical
+                multiline_secondary: true
+                icon_color: purple
+                tap_action:
+                  action: more-info
+          - type: custom:mushroom-chips-card
+            alignment: justify
+            chips:
+              - type: template
+                icon: mdi:weather-night
+                icon_color: green
+                content: NT 00–07 · 0,95 ct
+              - type: template
+                icon: mdi:minus
+                icon_color: >
+                  {% set slot = state_attr('sensor.tarifvergleich_preise', 'modul3_slot') %}
+                  {{ 'amber' if slot == 'st' else 'grey' }}
+                content: ST 07–15 / 20–24 · 9,53 ct
+              - type: template
+                icon: mdi:weather-sunny
+                icon_color: >
+                  {% set slot = state_attr('sensor.tarifvergleich_preise', 'modul3_slot') %}
+                  {{ 'red' if slot == 'ht' else 'grey' }}
+                content: HT 15–20 · 15,65 ct
           - type: markdown
             content: >
-              Arbeitspreise brutto, Dynamisch und Dynamisch + Modul 3.
-              **Woche:** bis zu 7 Tage, Daten ab Sensorstart (Recorder-States).
-              **Monat / Jahr:** Statistik ab Sensorstart, nicht rückwirkend bis Januar.
-              Die Modul-3-Kurve beginnt erst mit dem Sensorstart; in ST liegt sie auf Dynamisch.
-              NT/HT (Nacht günstiger, 15–20 teurer) erscheinen in der Linie erst, wenn
-              der Sensor eine Nacht bzw. ein Hochlastfenster mitgeschrieben hat.
+              Woche = Recorder ab Sensorstart. Monat/Jahr = Statistik, Modul 3 erst ab 23.08. 10:03.
       - type: grid
         cards:
           - type: heading

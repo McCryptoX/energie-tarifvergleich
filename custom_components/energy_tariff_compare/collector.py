@@ -676,6 +676,42 @@ def best_run_windows(store: Store, cfg: dict, now: datetime) -> dict:
     return out
 
 
+def today_price_kpis(store: Store, cfg: dict, now: datetime) -> dict:
+    """Today's cheapest/peak Dynamic slot and Modul-3 NT grid delta (net ct)."""
+    local_now = now.astimezone(T.TZ)
+    today = local_now.date()
+    spots = store.spots_for_day(today)
+    day_start = datetime(today.year, today.month, today.day, tzinfo=T.TZ)
+    expected = T.expected_intervals(today)
+    cheapest: tuple[float, datetime] | None = None
+    peak: tuple[float, datetime] | None = None
+    for index in range(expected):
+        start = (day_start.astimezone(timezone.utc) + timedelta(minutes=15 * index)).astimezone(T.TZ)
+        spot = parse_float(spots.get(utc_iso(start.astimezone(timezone.utc))))
+        price = T.energy_price_gross_eur_per_kwh(cfg, "dynamic", start, spot)
+        if price is None:
+            continue
+        value = float(price)
+        if cheapest is None or value < cheapest[0]:
+            cheapest = (value, start)
+        if peak is None or value > peak[0]:
+            peak = (value, start)
+
+    def _span(start: datetime) -> str:
+        end = start + timedelta(minutes=15)
+        return f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
+
+    nt = float(cfg["westnetz_2026"]["modul3"]["nt"]["net_ct_per_kwh"])
+    flat = float(cfg["westnetz_2026"]["working_net_ct_per_kwh"])
+    return {
+        "today_cheapest_ct": None if cheapest is None else round(cheapest[0] * 100.0, 1),
+        "today_cheapest_span": None if cheapest is None else _span(cheapest[1]),
+        "today_peak_ct": None if peak is None else round(peak[0] * 100.0, 1),
+        "today_peak_span": None if peak is None else _span(peak[1]),
+        "modul3_nt_delta_net_ct": round(nt - flat, 2),
+    }
+
+
 def _due_interval_count(day: date, now: datetime) -> int:
     expected = T.expected_intervals(day)
     local_now = now.astimezone(T.TZ)
@@ -1411,9 +1447,11 @@ def snapshot(store: Store, now: datetime, cfg: dict | None = None) -> dict:
     }
     today_row = _asdict(rows["today"]) or {}
     run_windows: dict = {}
+    price_kpis: dict = {}
     if cfg is not None:
         today_row.update(cheap_hits_for_day(store, cfg, today, now))
         run_windows = best_run_windows(store, cfg, now)
+        price_kpis = today_price_kpis(store, cfg, now)
     return {
         "today": today_row,
         "yesterday": _asdict(rows["yesterday"]),
@@ -1426,6 +1464,7 @@ def snapshot(store: Store, now: datetime, cfg: dict | None = None) -> dict:
         "tesla_count_started_utc": rows.get("tesla_count_started_utc"),
         "tesla_pending_kwh": parse_float(rows.get("tesla_pending_kwh")),
         "run_windows": run_windows,
+        "price_kpis": price_kpis,
     }
 
 

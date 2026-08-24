@@ -268,6 +268,11 @@ def main():
         check(heat_now["heat_when"] == "heute" and heat_now["heat_span"] == "13:00–16:00", "heat NT remaining 13–16")
         heat_eve = C.next_heat_nt_window(cfg, datetime(2026, 8, 20, 17, 0, tzinfo=T.TZ))
         check(heat_eve["heat_when"] == "morgen" and heat_eve["heat_span"] == "02:00–06:00", "after 16:00 next NT is 02–06")
+        kpis = C.today_price_kpis(store, cfg, datetime(2026, 8, 20, 12, 0, tzinfo=T.TZ))
+        check(
+            abs(kpis["modul3_nt_delta_net_ct"] - (0.95 - 9.53)) < 1e-9,
+            "NT vs flat grid delta is net ct from the price sheet",
+        )
 
     print("ALL TESTS PASSED")
 

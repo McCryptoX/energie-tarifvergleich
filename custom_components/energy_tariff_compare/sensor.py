@@ -180,8 +180,9 @@ class PricesSensor(_Base):
         err = self._data().get("error")
         if err:
             prices["collector_error"] = err
-        run_windows = (self._data().get("snap") or {}).get("run_windows") or {}
-        prices.update(run_windows)
+        snap = self._data().get("snap") or {}
+        prices.update(snap.get("run_windows") or {})
+        prices.update(snap.get("price_kpis") or {})
         return prices
 
 
